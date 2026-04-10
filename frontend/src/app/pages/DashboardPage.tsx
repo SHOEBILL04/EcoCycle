@@ -106,9 +106,10 @@ export function DashboardPage() {
   const [data, setData] = useState<any>(null);
 
   useEffect(() => {
+    const token = localStorage.getItem('access_token');
     fetch('http://localhost:8000/api/dashboard', {
         headers: {
-            'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+            'Authorization': `Bearer ${token}`
         }
     })
     .then(res => res.json())
@@ -119,6 +120,13 @@ export function DashboardPage() {
         }
         if (data.clan_alerts) {
             setClanAlerts(data.clan_alerts);
+    .then(payload => {
+        setData(payload);
+        if (payload.clan_alerts) {
+            setClanAlerts(payload.clan_alerts);
+        }
+        if (payload.recent_submissions) {
+            setSubmissions(payload.recent_submissions);
         }
     })
     .catch(console.error);
@@ -426,7 +434,6 @@ export function DashboardPage() {
               </div>
             ) : (
                 submissions.map((sub: any) => {
-                    const isDispute = sub.status === 'PENDING' || sub.status === 'FLAGGED';
                     const categoryUpper = sub.category ? sub.category.charAt(0).toUpperCase() + sub.category.slice(1) : 'Unknown';
                     const emoji = sub.category === 'organic' ? '🌱' : sub.category === 'e-waste' ? '💻' : sub.category === 'hazardous' ? '⚠️' : '♻️';
                     const col = sub.category === 'organic' ? 'green' : sub.category === 'e-waste' ? 'purple' : sub.category === 'hazardous' ? 'red' : 'blue';
@@ -475,6 +482,7 @@ export function DashboardPage() {
                             {sub.status === "approved" || sub.status === "COMPLETED" ? (
                               <span className="text-sm font-bold text-emerald-600">
                                 +{sub.points || 0} pts
+                                +{sub.points || 0}
                               </span>
                             ) : (
                               <span className="text-xs font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full flex items-center gap-1">
