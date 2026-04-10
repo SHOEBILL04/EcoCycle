@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   UserPlus,
   UserCheck,
@@ -122,6 +122,28 @@ export function ProfilePage() {
   const [activeTab, setActiveTab] = useState<"activity" | "stats" | "badges">(
     "activity"
   );
+  const [user, setUser] = useState<any>(null);
+  const [stats, setStats] = useState<any>(null);
+  const [submissions, setSubmissions] = useState<any[]>([]);
+
+  useEffect(() => {
+    fetch('http://localhost:8000/api/user', {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('access_token')}` }
+    })
+    .then(res => res.json())
+    .then(data => { if (data.id) setUser(data); })
+    .catch(console.error);
+
+    fetch('http://localhost:8000/api/dashboard', {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('access_token')}` }
+    })
+    .then(res => res.json())
+    .then(data => {
+        setStats(data.stats);
+        setSubmissions(data.recent_submissions);
+    })
+    .catch(console.error);
+  }, []);
 
   return (
     <div className="p-4 lg:p-6 max-w-5xl mx-auto">
@@ -142,26 +164,26 @@ export function ProfilePage() {
         </div>
 
         <div className="px-6 pb-6">
-          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 -mt-12 mb-4">
+          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 -mt-12 mb-4 relative z-10">
             <div className="flex items-end gap-4">
-              <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-emerald-400 to-green-600 flex items-center justify-center text-white font-black text-2xl border-4 border-white shadow-lg">
-                EW
+              <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-emerald-400 to-green-600 flex shrink-0 items-center justify-center text-white font-black text-2xl border-4 border-white shadow-lg">
+                {user?.name ? user.name.slice(0, 2).toUpperCase() : 'U'}
               </div>
               <div className="pb-1">
                 <div className="flex items-center gap-2 flex-wrap">
                   <h1 className="text-xl font-bold text-gray-900">
-                    EcoWarrior99
+                    {user?.name || 'User'}
                   </h1>
                   <span className="bg-gradient-to-r from-amber-400 to-orange-500 text-white text-xs font-bold px-2.5 py-1 rounded-full flex items-center gap-1">
-                    <Trophy className="w-3 h-3" /> Rank #2
+                    <Trophy className="w-3 h-3" /> Rank #{stats?.community_rank || '?'}
                   </span>
                   <span className="bg-emerald-100 text-emerald-700 text-xs font-medium px-2.5 py-1 rounded-full">
-                    Citizen
+                    {user?.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : 'Citizen'}
                   </span>
                 </div>
                 <p className="text-gray-500 text-sm mt-0.5 flex items-center gap-1.5">
                   <Globe className="w-3.5 h-3.5" />
-                  @ecowarrior99 · Member since Feb 2024
+                  @{user?.name ? user.name.toLowerCase().replace(/\s+/g, '') : 'user'} · Member since {user?.created_at ? new Date(user.created_at).getFullYear() : new Date().getFullYear()}
                 </p>
               </div>
             </div>
@@ -199,11 +221,11 @@ export function ProfilePage() {
           {/* Stats row */}
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
             {[
-              { label: "Total Points", val: "109,500", icon: Leaf, color: "text-emerald-600" },
-              { label: "Submissions", val: "731", icon: Camera, color: "text-blue-600" },
-              { label: "Accuracy", val: "96.7%", icon: Target, color: "text-violet-600" },
-              { label: "Followers", val: "284", icon: UserPlus, color: "text-pink-600" },
-              { label: "Following", val: "67", icon: UserCheck, color: "text-orange-600" },
+              { label: "Total Points", val: stats?.total_points?.toLocaleString() || "0", icon: Leaf, color: "text-emerald-600" },
+              { label: "Submissions", val: stats?.classification_count?.toLocaleString() || "0", icon: Camera, color: "text-blue-600" },
+              { label: "Accuracy", val: `${stats?.accuracy_rate || 0}%`, icon: Target, color: "text-violet-600" },
+              { label: "Followers", val: "0", icon: UserPlus, color: "text-pink-600" },
+              { label: "Following", val: "0", icon: UserCheck, color: "text-orange-600" },
             ].map((stat, i) => (
               <div
                 key={i}
@@ -242,55 +264,75 @@ export function ProfilePage() {
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
               <div className="p-5 border-b border-gray-50">
                 <h2 className="font-bold text-gray-900">Classification History</h2>
-                <p className="text-xs text-gray-400">731 total submissions</p>
+                <p className="text-xs text-gray-400">{stats?.classification_count || 0} total submissions</p>
               </div>
               <div className="divide-y divide-gray-50">
-                {recentActivity.map((item, i) => (
-                  <div
-                    key={i}
-                    className="flex items-center gap-3 p-4 hover:bg-gray-50 transition-colors"
-                  >
-                    <div className="w-10 h-10 bg-gray-100 rounded-xl flex items-center justify-center text-xl flex-shrink-0">
-                      {item.emoji}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-0.5">
-                        <span className="font-semibold text-gray-900 text-sm truncate">
-                          {item.item}
-                        </span>
-                        <span
-                          className={`text-xs px-2 py-0.5 rounded-full font-medium ${catColorMap[item.catColor]}`}
-                        >
-                          {item.cat}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <div className="h-1 w-16 bg-gray-100 rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-emerald-400 rounded-full"
-                            style={{ width: `${item.conf * 100}%` }}
-                          ></div>
-                        </div>
-                        <span className="text-xs text-gray-400">
-                          {Math.round(item.conf * 100)}% · {item.time}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="text-right flex-shrink-0">
-                      {item.ok ? (
-                        <div className="flex items-center gap-1 text-emerald-600">
-                          <CheckCircle className="w-3.5 h-3.5" />
-                          <span className="text-sm font-bold">+{item.pts}</span>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-1 text-amber-600">
-                          <AlertTriangle className="w-3.5 h-3.5" />
-                          <span className="text-xs font-bold">Dispute</span>
-                        </div>
-                      )}
-                    </div>
+                {submissions.length === 0 ? (
+                  <div className="p-8 text-center text-gray-400">
+                      <Camera className="w-10 h-10 mx-auto mb-3 opacity-20" />
+                      <p className="text-sm">No submissions yet.</p>
                   </div>
-                ))}
+                ) : (
+                  submissions.map((sub: any) => {
+                    const isDispute = sub.status === 'PENDING' || sub.status === 'FLAGGED';
+                    const categoryUpper = sub.category ? sub.category.charAt(0).toUpperCase() + sub.category.slice(1) : 'Unknown';
+                    const emoji = sub.category === 'organic' ? '🌱' : sub.category === 'e-waste' ? '💻' : sub.category === 'hazardous' ? '⚠️' : '♻️';
+                    const col = sub.category === 'organic' ? 'green' : sub.category === 'e-waste' ? 'purple' : sub.category === 'hazardous' ? 'red' : 'blue';
+                    const score = parseFloat(sub.confidence_score) || 0;
+                    return (
+                      <div
+                        key={sub.id}
+                        className="flex items-center gap-3 p-4 hover:bg-gray-50 transition-colors"
+                      >
+                        <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center text-xl flex-shrink-0">
+                          {emoji}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-0.5">
+                            <span className="font-semibold text-gray-900 text-sm truncate">
+                              {sub.subcategory || categoryUpper}
+                            </span>
+                            <span
+                              className={`text-xs px-2 py-0.5 rounded-full font-medium ${catColorMap[col] || "bg-gray-100 text-gray-700"}`}
+                            >
+                              {categoryUpper}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-1">
+                              <div className="h-1 w-16 bg-gray-100 rounded-full overflow-hidden">
+                                <div
+                                  className="h-full rounded-full"
+                                  style={{
+                                    width: `${score * 100}%`,
+                                    backgroundColor: score >= 0.75 ? "#10b981" : "#f59e0b",
+                                  }}
+                                ></div>
+                              </div>
+                              <span className="text-xs text-gray-400">
+                                {Math.round(score * 100)}%
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3 flex-shrink-0">
+                          <div className="text-right">
+                            {!isDispute ? (
+                              <span className="text-sm font-bold text-emerald-600">
+                                Evaluated
+                              </span>
+                            ) : (
+                              <span className="text-xs font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full flex items-center gap-1">
+                                <AlertTriangle className="w-3 h-3" />
+                                Dispute
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
               </div>
             </div>
           </div>

@@ -102,44 +102,6 @@ const recentSubmissions = [
   },
 ];
 
-const statCards = [
-  {
-    title: "Total Points",
-    value: "2,840",
-    change: "+480 today",
-    trend: "up",
-    icon: Leaf,
-    color: "emerald",
-    bg: "from-emerald-500 to-green-600",
-  },
-  {
-    title: "Submissions",
-    value: "148",
-    change: "+5 this week",
-    trend: "up",
-    icon: Camera,
-    color: "blue",
-    bg: "from-blue-500 to-blue-600",
-  },
-  {
-    title: "Accuracy Rate",
-    value: "91.3%",
-    change: "+2.1% vs last month",
-    trend: "up",
-    icon: Target,
-    color: "violet",
-    bg: "from-violet-500 to-purple-600",
-  },
-  {
-    title: "Global Rank",
-    value: "#127",
-    change: "↑ 23 positions",
-    trend: "up",
-    icon: Trophy,
-    color: "amber",
-    bg: "from-amber-500 to-orange-500",
-  },
-];
 
 const badges = [
   { emoji: "🌱", label: "First Submit", earned: true },
@@ -162,6 +124,7 @@ import { useState, useEffect } from "react";
 export function DashboardPage() {
   const [stats, setStats] = useState<any>(null);
   const [submissions, setSubmissions] = useState<any[]>([]);
+  const [clanAlerts, setClanAlerts] = useState<any[]>([]);
 
   useEffect(() => {
     fetch('http://localhost:8000/api/dashboard', {
@@ -173,12 +136,36 @@ export function DashboardPage() {
     .then(data => {
         setStats(data.stats);
         setSubmissions(data.recent_submissions);
+        if (data.clan_alerts) {
+            setClanAlerts(data.clan_alerts);
+        }
     })
     .catch(console.error);
   }, []);
 
   return (
     <div className="p-4 lg:p-6 max-w-7xl mx-auto">
+      {/* Clan Alerts */}
+      {clanAlerts.length > 0 && (
+        <div className="mb-6 space-y-3">
+          {clanAlerts.map((alert: any) => (
+            <div key={alert.id} className="bg-red-50 border border-red-200 rounded-2xl p-4 flex items-center justify-between shadow-sm">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-red-100 rounded-xl flex items-center justify-center">
+                  <AlertTriangle className="w-5 h-5 text-red-600" />
+                </div>
+                <div>
+                  <p className="text-red-900 font-bold text-sm">⚠ Clan Alert: Violations Detected</p>
+                  <p className="text-red-700 text-xs mt-0.5">
+                    Member <strong>{alert.name}</strong> has been flagged {alert.flags} times for severe submission violations.
+                  </p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
@@ -238,7 +225,36 @@ export function DashboardPage() {
 
       {/* Stat cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        {statCards.map((card, i) => (
+        {[
+          {
+            title: "Total Points",
+            value: stats ? stats.total_points.toLocaleString() : "...",
+            change: "Lifetime overall",
+            icon: Leaf,
+            bg: "from-emerald-500 to-green-600",
+          },
+          {
+            title: "Submissions",
+            value: stats ? stats.classification_count.toLocaleString() : "...",
+            change: "Total images analyzed",
+            icon: Camera,
+            bg: "from-blue-500 to-blue-600",
+          },
+          {
+            title: "Accuracy Rate",
+            value: stats ? `${stats.accuracy_rate}%` : "...",
+            change: "Successful classifications",
+            icon: Target,
+            bg: "from-violet-500 to-purple-600",
+          },
+          {
+            title: "Global Rank",
+            value: stats && stats.classification_count > 0 ? `#${stats.community_rank.toLocaleString()}` : "Unranked",
+            change: "Leaderboard position",
+            icon: Trophy,
+            bg: "from-amber-500 to-orange-500",
+          },
+        ].map((card, i) => (
           <div
             key={i}
             className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm hover:shadow-md transition-shadow"
@@ -372,61 +388,76 @@ export function DashboardPage() {
             </Link>
           </div>
           <div className="divide-y divide-gray-50">
-            {recentSubmissions.map((sub) => (
-              <div
-                key={sub.id}
-                className="flex items-center gap-3 p-4 hover:bg-gray-50 transition-colors"
-              >
-                <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center text-xl flex-shrink-0">
-                  {sub.emoji}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-0.5">
-                    <span className="font-semibold text-gray-900 text-sm truncate">
-                      {sub.item}
-                    </span>
-                    <span
-                      className={`text-xs px-2 py-0.5 rounded-full font-medium ${categoryColorMap[sub.color]}`}
-                    >
-                      {sub.category}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-xs text-gray-400">{sub.id}</span>
-                    <div className="flex items-center gap-1">
-                      <div className="h-1 w-16 bg-gray-100 rounded-full overflow-hidden">
-                        <div
-                          className="h-full rounded-full"
-                          style={{
-                            width: `${sub.confidence * 100}%`,
-                            backgroundColor:
-                              sub.confidence >= 0.75 ? "#10b981" : "#f59e0b",
-                          }}
-                        ></div>
-                      </div>
-                      <span className="text-xs text-gray-400">
-                        {Math.round(sub.confidence * 100)}%
-                      </span>
-                    </div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3 flex-shrink-0">
-                  <div className="text-right">
-                    {sub.status === "approved" ? (
-                      <span className="text-sm font-bold text-emerald-600">
-                        +{sub.points}
-                      </span>
-                    ) : (
-                      <span className="text-xs font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full flex items-center gap-1">
-                        <AlertTriangle className="w-3 h-3" />
-                        Dispute
-                      </span>
-                    )}
-                    <div className="text-xs text-gray-400 mt-0.5">{sub.time}</div>
-                  </div>
-                </div>
+            {submissions.length === 0 ? (
+              <div className="p-8 text-center text-gray-400">
+                  <Camera className="w-10 h-10 mx-auto mb-3 opacity-20" />
+                  <p className="text-sm">No submissions yet.</p>
+                  <p className="text-xs mt-1">Classify your first image to get started!</p>
               </div>
-            ))}
+            ) : (
+                submissions.map((sub: any) => {
+                    const isDispute = sub.status === 'PENDING' || sub.status === 'FLAGGED';
+                    const categoryUpper = sub.category ? sub.category.charAt(0).toUpperCase() + sub.category.slice(1) : 'Unknown';
+                    const emoji = sub.category === 'organic' ? '🌱' : sub.category === 'e-waste' ? '💻' : sub.category === 'hazardous' ? '⚠️' : '♻️';
+                    const col = sub.category === 'organic' ? 'green' : sub.category === 'e-waste' ? 'purple' : sub.category === 'hazardous' ? 'red' : 'blue';
+                    const score = parseFloat(sub.confidence_score) || 0;
+                    
+                    return (
+                      <div
+                        key={sub.id}
+                        className="flex items-center gap-3 p-4 hover:bg-gray-50 transition-colors"
+                      >
+                        <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center text-xl flex-shrink-0">
+                          {emoji}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-0.5">
+                            <span className="font-semibold text-gray-900 text-sm truncate">
+                              {sub.subcategory || categoryUpper}
+                            </span>
+                            <span
+                              className={`text-xs px-2 py-0.5 rounded-full font-medium ${categoryColorMap[col]}`}
+                            >
+                              {categoryUpper}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <span className="text-xs text-gray-400">ID #{sub.id}</span>
+                            <div className="flex items-center gap-1">
+                              <div className="h-1 w-16 bg-gray-100 rounded-full overflow-hidden">
+                                <div
+                                  className="h-full rounded-full"
+                                  style={{
+                                    width: `${score * 100}%`,
+                                    backgroundColor:
+                                      score >= 0.75 ? "#10b981" : "#f59e0b",
+                                  }}
+                                ></div>
+                              </div>
+                              <span className="text-xs text-gray-400">
+                                {Math.round(score * 100)}%
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3 flex-shrink-0">
+                          <div className="text-right">
+                            {!isDispute ? (
+                              <span className="text-sm font-bold text-emerald-600">
+                                Authenticated
+                              </span>
+                            ) : (
+                              <span className="text-xs font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full flex items-center gap-1">
+                                <AlertTriangle className="w-3 h-3" />
+                                Review
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                })
+            )}
           </div>
         </div>
 
