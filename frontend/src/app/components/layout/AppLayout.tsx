@@ -40,7 +40,7 @@ const adminItems = [
 ];
 
 // Demo state: current role
-const currentRole = "Administrator"; // "Citizen" | "Moderator" | "Administrator"
+let currentRole = "Administrator"; // "Citizen" | "Moderator" | "Administrator"
 
 export function AppLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
