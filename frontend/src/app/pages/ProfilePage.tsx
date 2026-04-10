@@ -57,44 +57,53 @@ export function ProfilePage() {
   const [keyMetrics, setKeyMetrics] = useState<any[]>([]);
 
   useEffect(() => {
-    fetch(`${import.meta.env.VITE_API_URL}/user`, {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('access_token')}` }
-    })
-    .then(res => res.json())
-    .then(data => { if (data.id) setUser(data); })
-    .catch(console.error);
+    const loadProfile = () => {
+        fetch(`${import.meta.env.VITE_API_URL}/user`, {
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('access_token')}` }
+        })
+        .then(res => res.json())
+        .then(data => { if (data.id) setUser(data); })
+        .catch(console.error);
 
-    fetch(`${import.meta.env.VITE_API_URL}/dashboard`, {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('access_token')}` }
-    })
-    .then(res => res.json())
-    .then(data => {
-        setStats(data.stats);
-        setSubmissions(data.recent_submissions || []);
-    })
-    .catch(console.error);
+        fetch(`${import.meta.env.VITE_API_URL}/dashboard`, {
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('access_token')}` }
+        })
+        .then(res => res.json())
+        .then(data => {
+            setStats(data.stats);
+            setSubmissions(data.recent_submissions || []);
+        })
+        .catch(console.error);
 
-    fetch(`${import.meta.env.VITE_API_URL}/leaderboard`, {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('access_token')}` }
-    })
-    .then(res => res.json())
-    .then(data => {
-        setMyClanData(data.my_clan || []);
-    })
-    .catch(console.error);
+        fetch(`${import.meta.env.VITE_API_URL}/leaderboard`, {
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('access_token')}` }
+        })
+        .then(res => res.json())
+        .then(data => {
+            setMyClanData(data.my_clan || []);
+        })
+        .catch(console.error);
 
-    fetch(`${import.meta.env.VITE_API_URL}/profile/stats`, {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('access_token')}` }
-    })
-    .then(res => res.json())
-    .then(data => {
-        setRadarData(data.radarData || []);
-        setActivityData(data.activityData || []);
-        setBadges(data.badges || []);
-        setCategoryBreakdown(data.categoryBreakdown || []);
-        setKeyMetrics(data.keyMetrics || []);
-    })
-    .catch(console.error);
+        fetch(`${import.meta.env.VITE_API_URL}/profile/stats`, {
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('access_token')}` }
+        })
+        .then(res => res.json())
+        .then(data => {
+            setRadarData(data.radarData || []);
+            setActivityData(data.activityData || []);
+            setBadges(data.badges || []);
+            setCategoryBreakdown(data.categoryBreakdown || []);
+            setKeyMetrics(data.keyMetrics || []);
+        })
+        .catch(console.error);
+    };
+
+    loadProfile();
+
+    window.addEventListener('user-updated', loadProfile);
+    return () => {
+        window.removeEventListener('user-updated', loadProfile);
+    };
   }, []);
 
   return (
@@ -226,28 +235,25 @@ export function ProfilePage() {
                   </div>
                 ) : (
                   submissions.map((sub: any) => {
-                    const isDispute = sub.status === 'PENDING' || sub.status === 'FLAGGED';
-                    const categoryUpper = sub.category ? sub.category.charAt(0).toUpperCase() + sub.category.slice(1) : 'Unknown';
-                    const emoji = sub.category === 'organic' ? '🌱' : sub.category === 'e-waste' ? '💻' : sub.category === 'hazardous' ? '⚠️' : '♻️';
-                    const col = sub.category === 'organic' ? 'green' : sub.category === 'e-waste' ? 'purple' : sub.category === 'hazardous' ? 'red' : 'blue';
-                    const score = parseFloat(sub.confidence_score) || 0;
+                    const isDispute = sub.status === 'pending' || sub.status === 'flagged';
+                    const score = sub.confidence || 0;
                     return (
                       <div
                         key={sub.id}
                         className="flex items-center gap-3 p-4 hover:bg-gray-50 transition-colors"
                       >
                         <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center text-xl flex-shrink-0">
-                          {emoji}
+                          {sub.emoji}
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-0.5">
                             <span className="font-semibold text-gray-900 text-sm truncate">
-                              {sub.subcategory || categoryUpper}
+                              {sub.item}
                             </span>
                             <span
-                              className={`text-xs px-2 py-0.5 rounded-full font-medium ${catColorMap[col] || "bg-gray-100 text-gray-700"}`}
+                              className={`text-xs px-2 py-0.5 rounded-full font-medium ${catColorMap[sub.color] || "bg-gray-100 text-gray-700"}`}
                             >
-                              {categoryUpper}
+                              {sub.category ? sub.category.charAt(0).toUpperCase() + sub.category.slice(1) : 'Unknown'}
                             </span>
                           </div>
                           <div className="flex items-center gap-3">

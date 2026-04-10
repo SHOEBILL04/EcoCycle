@@ -60,6 +60,7 @@ export function AppLayout() {
               const normalizedRole = String(data.role ?? 'citizen').toLowerCase();
               localStorage.setItem('role', normalizedRole);
               localStorage.setItem('user_email', data.email ?? '');
+              localStorage.setItem('user_id', String(data.id));
               const roleText: UserRole =
                 normalizedRole === 'admin'
                   ? 'Administrator'
@@ -120,11 +121,12 @@ export function AppLayout() {
 
   const isModerator = currentRole === 'Moderator' || (localStorage.getItem('role') ?? '').toLowerCase() === 'moderator';
 
-  let navItems = baseNavItems;
+  let navItems = [...baseNavItems];
+  if (isModerator || isAdmin) {
+    navItems.push({ label: "Moderator Queue", icon: Activity, path: "/app/moderator" });
+  }
   if (isAdmin) {
-    navItems = [...baseNavItems, { label: "Admin Dashboard", icon: Shield, path: "/app/admin" }];
-  } else if (isModerator) {
-    navItems = [...baseNavItems, { label: "Moderator Queue", icon: Activity, path: "/app/moderator" }];
+    navItems.push({ label: "Admin Dashboard", icon: Shield, path: "/app/admin" });
   }
 
   const isActive = (path: string) => {
@@ -337,7 +339,11 @@ export function AppLayout() {
                   <button
                     onClick={() => {
                         setProfileOpen(false);
-                        localStorage.clear();
+                        // Only clear auth tokens — preserve per-user data like following lists
+                        localStorage.removeItem('access_token');
+                        localStorage.removeItem('role');
+                        localStorage.removeItem('user_email');
+                        localStorage.removeItem('user_id');
                         navigate('/');
                     }}
                     className="flex w-full items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors font-medium"

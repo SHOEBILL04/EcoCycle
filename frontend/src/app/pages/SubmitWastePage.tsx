@@ -202,6 +202,7 @@ export function SubmitWastePage() {
         };
         setResult(fakeResult as any);
         setStatus("dispute");
+        window.dispatchEvent(new CustomEvent('user-updated'));
         return;
       }
       
@@ -247,9 +248,7 @@ export function SubmitWastePage() {
       setStatus(isHigh ? "result" : "dispute");
 
       // Notify the global layout that user points/stats have changed
-      if (isHigh) {
-        window.dispatchEvent(new CustomEvent('user-updated'));
-      }
+      window.dispatchEvent(new CustomEvent('user-updated'));
 
     } catch (err) {
       clearInterval(interval);

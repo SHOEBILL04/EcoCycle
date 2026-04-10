@@ -42,7 +42,7 @@ class AdminController extends Controller
     public function updateRole(Request $request, $id)
     {
         $request->validate([
-            'role' => ['required', Rule::in(['citizen', 'moderator'])],
+            'role' => ['required', Rule::in(['citizen', 'moderator', 'admin'])],
         ]);
 
         $admin = $request->user();

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { ChevronRight, Shield, CalendarDays, MapPin, Users, Crown, BookOpen } from "lucide-react";
+import { Link } from "react-router";
+import { ChevronRight, Shield, CalendarDays, MapPin, Users, Crown, BookOpen, Activity, Database, Sliders } from "lucide-react";
 
 type AdminUser = {
   id: number;
@@ -48,6 +49,9 @@ export function AdminDashboardPage() {
   const [message, setMessage] = useState<string>("");
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
   const [selectedUserLoading, setSelectedUserLoading] = useState(false);
+  const [stats, setStats] = useState<any>(null);
+  const [threshold, setThreshold] = useState<string>("");
+  const [updatingThreshold, setUpdatingThreshold] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -67,9 +71,10 @@ export function AdminDashboardPage() {
           Accept: "application/json",
         };
 
-        const [usersRes, meRes] = await Promise.all([
+        const [usersRes, meRes, statsRes] = await Promise.all([
           fetch(`${API}/admin/users`, { headers }),
           fetch(`${API}/user`, { headers }),
+          fetch(`${API}/admin/system-stats`, { headers }),
         ]);
 
         if (!usersRes.ok) {
@@ -86,6 +91,12 @@ export function AdminDashboardPage() {
           const me = await meRes.json();
           setCurrentUserId(me.id ?? null);
         }
+
+        if (statsRes.ok) {
+          const s = await statsRes.json();
+          setStats(s);
+          setThreshold(s.current_threshold.toString());
+        }
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         setError(`Error: ${msg}`);
@@ -98,7 +109,7 @@ export function AdminDashboardPage() {
     load();
   }, []);
 
-  const handleChangeRole = async (userId: number, role: "citizen" | "moderator") => {
+  const handleChangeRole = async (userId: number, role: "citizen" | "moderator" | "admin") => {
     setSavingUserId(userId);
     setMessage("");
     setError("");
@@ -169,6 +180,32 @@ export function AdminDashboardPage() {
     }
   };
 
+  const handleUpdateThreshold = async () => {
+    setUpdatingThreshold(true);
+    setMessage("");
+    setError("");
+    try {
+      const token = localStorage.getItem("access_token");
+      const res = await fetch(`${API}/admin/config/threshold`, {
+        method: "PUT",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ threshold: parseFloat(threshold) }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setStats((prev: any) => ({ ...prev, current_threshold: data.threshold }));
+        setMessage("System confidence threshold updated successfully.");
+      } else {
+        const err = await res.json();
+        setError(`Failed to update threshold: ${err.error || err.message}`);
+      }
+    } catch (err: any) {
+      setError(err.message || "Failed to update threshold");
+    } finally {
+      setUpdatingThreshold(false);
+    }
+  };
+
   const handleSelectUser = async (user: AdminUser) => {
     setSelectedUserLoading(true);
     setError("");
@@ -203,10 +240,69 @@ export function AdminDashboardPage() {
 
   return (
     <div className="p-4 lg:p-6 max-w-7xl mx-auto">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
-        <p className="mt-1 text-gray-600">Manage all users in the system</p>
+      <div className="mb-6 flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
+          <p className="mt-1 text-gray-600">Complete system oversight and user management</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <Link to="/app/moderator" className="flex items-center gap-2 rounded-xl border border-violet-200 bg-violet-50 px-4 py-2.5 text-sm font-semibold text-violet-700 hover:bg-violet-100 transition-colors">
+            <Shield className="w-4 h-4" /> Moderator Panel
+          </Link>
+          <Link to="/app/audit" className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-semibold text-emerald-700 hover:bg-emerald-100 transition-colors">
+            <Database className="w-4 h-4" /> Audit Trails
+          </Link>
+        </div>
       </div>
+
+      {stats && (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+            <div className="flex items-center gap-2 text-gray-500 mb-2 font-medium text-sm">
+              <Activity className="w-4 h-4 text-blue-500" /> Total Submissions
+            </div>
+            <div className="text-2xl font-black text-gray-900">
+              {Object.values(stats.submission_breakdown || {}).reduce((a: any, b: any) => a + b.total, 0) as number}
+            </div>
+          </div>
+          <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+            <div className="flex items-center gap-2 text-gray-500 mb-2 font-medium text-sm">
+              <Users className="w-4 h-4 text-emerald-500" /> Total Users
+            </div>
+            <div className="text-2xl font-black text-gray-900">
+              {Object.values(stats.user_role_breakdown || {}).reduce((a: any, b: any) => a + b.total, 0) as number}
+            </div>
+          </div>
+          <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm md:col-span-2 flex flex-col justify-center">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="flex items-center gap-2 text-gray-500 mb-1 font-medium text-sm">
+                  <Sliders className="w-4 h-4 text-amber-500" /> AI Confidence Threshold
+                </div>
+                <p className="text-xs text-gray-400">Controls automated approval strictness.</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  step="0.05"
+                  min="0.1"
+                  max="1.0"
+                  value={threshold}
+                  onChange={(e) => setThreshold(e.target.value)}
+                  className="w-20 rounded-xl border border-gray-300 px-3 py-2 text-sm focus:border-violet-500 focus:ring-2 focus:ring-violet-200 outline-none"
+                />
+                <button
+                  onClick={handleUpdateThreshold}
+                  disabled={updatingThreshold || parseFloat(threshold) === stats.current_threshold}
+                  className="rounded-xl bg-gray-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:opacity-50"
+                >
+                  {updatingThreshold ? "Saving..." : "Update"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="grid gap-6 xl:grid-cols-[1.4fr_0.9fr]">
         <div className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
@@ -275,7 +371,7 @@ export function AdminDashboardPage() {
                               defaultValue={user.role === "admin" ? "citizen" : user.role}
                               onBlur={() => setOpenRoleUserId(null)}
                               onChange={(event) => {
-                                const nextRole = event.target.value as "citizen" | "moderator";
+                                const nextRole = event.target.value as "citizen" | "moderator" | "admin";
                                 handleChangeRole(user.id, nextRole).catch(console.error);
                               }}
                               className="rounded-md border border-gray-300 px-2 py-1 text-xs"
@@ -283,6 +379,7 @@ export function AdminDashboardPage() {
                             >
                               <option value="citizen">citizen</option>
                               <option value="moderator">moderator</option>
+                              <option value="admin">admin</option>
                             </select>
                           ) : (
                             <div className="flex items-center gap-2">

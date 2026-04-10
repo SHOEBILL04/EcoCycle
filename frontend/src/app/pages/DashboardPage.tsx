@@ -50,23 +50,32 @@ export function DashboardPage() {
   const [data, setData] = useState<any>(null);
 
   useEffect(() => {
-    const token = localStorage.getItem('access_token');
-    fetch(`${import.meta.env.VITE_API_URL}/dashboard`, {
-        headers: {
-            'Authorization': `Bearer ${token}`
-        }
-    })
-    .then(res => res.json())
-    .then(data => {
-        setData(data);
-        if (data.recent_submissions) {
-            setSubmissions(data.recent_submissions);
-        }
-        if (data.clan_alerts) {
-            setClanAlerts(data.clan_alerts);
-        }
-    })
-    .catch(console.error);
+    const fetchDashboard = () => {
+        const token = localStorage.getItem('access_token');
+        fetch(`${import.meta.env.VITE_API_URL}/dashboard`, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        })
+        .then(res => res.json())
+        .then(data => {
+            setData(data);
+            if (data.recent_submissions) {
+                setSubmissions(data.recent_submissions);
+            }
+            if (data.clan_alerts) {
+                setClanAlerts(data.clan_alerts);
+            }
+        })
+        .catch(console.error);
+    };
+
+    fetchDashboard();
+
+    window.addEventListener('user-updated', fetchDashboard);
+    return () => {
+        window.removeEventListener('user-updated', fetchDashboard);
+    };
   }, []);
 
   if (!data) {

@@ -14,10 +14,12 @@ import { RewardsPage } from "./pages/RewardsPage";
 import { ModeratorPage } from "./pages/ModeratorPage";
 import { AuditTrailPage } from "./pages/AuditTrailPage";
 import { AdminDashboardPage } from "./pages/AdminDashboardPage";
+import { NotFoundPage } from "./pages/NotFoundPage";
 
 export const router = createBrowserRouter([
   {
     path: "/",
+    errorElement: <NotFoundPage />,
     Component: LandingPage,
   },
   {
@@ -39,6 +41,7 @@ export const router = createBrowserRouter([
   {
     // All /app/* routes require authentication at minimum
     path: "/app",
+    errorElement: <NotFoundPage />,
     element: (
       <ProtectedRoute>
         <AppLayout />

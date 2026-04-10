@@ -48,14 +48,15 @@ class DashboardController extends Controller
                     'FLAGGED', 'REJECTED' => 'flagged',
                     default => 'pending'
                 };
-                $color = match($sub->category) {
+                $resolvedCategory = $sub->final_category ?? $sub->category;
+                $color = match($resolvedCategory) {
                     'recyclable' => 'blue',
                     'organic'    => 'green',
                     'e-waste'    => 'purple',
                     'hazardous'  => 'red',
                     default      => 'gray'
                 };
-                $emoji = match($sub->category) {
+                $emoji = match($resolvedCategory) {
                     'recyclable' => '♻️',
                     'organic'    => '🌱',
                     'e-waste'    => '💻',
@@ -65,9 +66,9 @@ class DashboardController extends Controller
                 $points = $sub->transactions->where('type', 'reward')->sum('points') ?? 0;
                 return [
                     'id' => 'SUB-' . $sub->id,
-                    'item' => $sub->subcategory ?? $sub->category,
-                    'category' => $sub->category,
-                    'confidence' => ($sub->confidence_score ?? 0),
+                    'item' => $sub->subcategory ?? $resolvedCategory,
+                    'category' => $resolvedCategory,
+                    'confidence' => ($sub->final_confidence ?? $sub->confidence_score ?? 0),
                     'points' => $points,
                     'status' => $statusStr,
                     'time' => $sub->created_at->diffForHumans(),
