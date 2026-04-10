@@ -62,6 +62,13 @@ class WasteClassificationService
         'oil' => 'Oil/Lubricant', 'pesticide' => 'Pesticide',
     ];
 
+    private array $knownCategories = [
+        'recyclable',
+        'organic',
+        'e-waste',
+        'hazardous',
+    ];
+
     /**
      * Classify from a base64 image string, running both engines.
      *
@@ -119,8 +126,10 @@ class WasteClassificationService
             'primary_confidence'   => $primary['confidence'],
             'secondary_category'   => $secondary['category'],
             'secondary_confidence' => $secondary['confidence'],
-            'primary_engine'       => 'VisionNet (Top-Score)',
-            'secondary_engine'     => 'EcoClassifier (Frequency-Weighted)',
+            'primary_distribution' => $primary['distribution'],
+            'secondary_distribution' => $secondary['distribution'],
+            'primary_engine'       => 'Gemini High Accuracy',
+            'secondary_engine'     => 'Gemini Consensus Check',
         ];
     }
 
@@ -130,10 +139,11 @@ class WasteClassificationService
      */
     private function primaryEngine(array $labels): array
     {
+        $categoryScores = $this->scoreCategoriesForPrimaryEngine($labels);
         $bestCategory   = 'unknown';
         $bestConfidence = 0.0;
         $bestKeyword    = null;
-
+        
         foreach ($labels as $label) {
             $desc  = strtolower($label['description']);
             $score = (float) $label['score'];
@@ -141,7 +151,6 @@ class WasteClassificationService
             foreach ($this->categoryMap as $category => $keywords) {
                 foreach ($keywords as $kw => $weight) {
                     if (str_contains($desc, $kw)) {
-                        // Primary engine: multiply Vision score by keyword weight
                         $adjusted = round($score * $weight, 4);
                         if ($adjusted > $bestConfidence) {
                             $bestConfidence = $adjusted;
@@ -163,6 +172,7 @@ class WasteClassificationService
             'category'   => $bestCategory,
             'confidence' => min(1.0, round($bestConfidence, 2)),
             'subcategory' => $bestKeyword ? ($this->subcategoryMap[$bestKeyword] ?? null) : null,
+            'distribution' => $this->normalizeDistribution($categoryScores, 0.4),
         ];
     }
 
@@ -216,6 +226,51 @@ class WasteClassificationService
         return [
             'category'   => $topCategory,
             'confidence' => min(0.97, round($topScore, 2)),
+            'distribution' => $this->normalizeDistribution($categoryScores, 0.35),
         ];
+    }
+
+    private function scoreCategoriesForPrimaryEngine(array $labels): array
+    {
+        $categoryScores = array_fill_keys($this->knownCategories, 0.0);
+
+        foreach ($labels as $label) {
+            $desc  = strtolower($label['description']);
+            $score = (float) $label['score'];
+
+            foreach ($this->categoryMap as $category => $keywords) {
+                foreach ($keywords as $kw => $weight) {
+                    if (str_contains($desc, $kw)) {
+                        $adjusted = round($score * $weight, 4);
+                        $categoryScores[$category] = max($categoryScores[$category], $adjusted);
+                    }
+                }
+            }
+        }
+
+        return $categoryScores;
+    }
+
+    private function normalizeDistribution(array $scores, float $fallbackScore): array
+    {
+        $distribution = [];
+
+        foreach ($this->knownCategories as $category) {
+            $distribution[$category] = max(0.0, (float) ($scores[$category] ?? 0.0));
+        }
+
+        $total = array_sum($distribution);
+        if ($total <= 0) {
+            $distribution['recyclable'] = $fallbackScore;
+            $total = array_sum($distribution);
+        }
+
+        foreach ($distribution as $category => $score) {
+            $distribution[$category] = round($score / $total, 4);
+        }
+
+        arsort($distribution);
+
+        return $distribution;
     }
 }

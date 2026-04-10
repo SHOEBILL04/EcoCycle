@@ -9,7 +9,6 @@ import {
   CheckCircle,
   AlertTriangle,
   RefreshCw,
-  Info,
   ChevronRight,
   Cpu,
   BarChart2,
@@ -19,35 +18,22 @@ import {
 import { motion, AnimatePresence } from "motion/react";
 
 type ClassificationStatus = "idle" | "analyzing" | "result" | "dispute";
+type ProbabilityMap = Record<string, number>;
 
 const engines = [
   {
-    id: "model-a",
-    name: "VisionNet v3",
-    desc: "CNN-based model, fast & broad",
-    badge: "Default",
+    id: "echo_engine",
+    name: "Echo_engine",
+    desc: "Default Teachable Machine detector with automatic Gemini fallback",
+    badge: "Recommended",
     color: "emerald",
   },
   {
-    id: "model-b",
-    name: "EcoClassifier",
-    desc: "Transformer model, higher precision",
+    id: "gemini_engine",
+    name: "Gemini",
+    desc: "High-accuracy cloud classifier for direct analysis",
     badge: "High Accuracy",
     color: "blue",
-  },
-  {
-    id: "dual",
-    name: "Dual Engine",
-    desc: "Both models, automatic dispute resolution",
-    badge: "Recommended",
-    color: "purple",
-  },
-  {
-    id: "teachable-machine",
-    name: "Teachable Machine",
-    desc: "Custom trained TensorFlow.js model natively loaded",
-    badge: "Custom",
-    color: "amber",
   },
 ];
 
@@ -65,6 +51,12 @@ const mockResults = {
     status: "approved" as const,
     modelA: { confidence: 0.94, category: "Recyclable" },
     modelB: { confidence: 0.91, category: "Recyclable" },
+    probabilities: {
+      recyclable: 0.94,
+      organic: 0.03,
+      "e-waste": 0.02,
+      hazardous: 0.01,
+    },
     tips: [
       "Rinse container before placing in recycling bin",
       "Remove any lids or caps",
@@ -87,6 +79,12 @@ const mockResults = {
     status: "dispute" as const,
     modelA: { confidence: 0.61, category: "E-Waste" },
     modelB: { confidence: 0.44, category: "Hazardous" },
+    probabilities: {
+      recyclable: 0.08,
+      organic: 0.11,
+      "e-waste": 0.61,
+      hazardous: 0.2,
+    },
     tips: [
       "E-waste must be dropped at a certified collection point",
       "Never dispose in regular trash",
@@ -99,13 +97,14 @@ const mockResults = {
 };
 
 export function SubmitWastePage() {
-  const [selectedEngine, setSelectedEngine] = useState("dual");
+  const [selectedEngine, setSelectedEngine] = useState("echo_engine");
   const [dragOver, setDragOver] = useState(false);
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [status, setStatus] = useState<ClassificationStatus>("idle");
   const [result, setResult] = useState<(typeof mockResults)["high"] | null>(null);
   const [analysisProgress, setAnalysisProgress] = useState(0);
-  const [tmUrl, setTmUrl] = useState("https://teachablemachine.withgoogle.com/models/ENTER_YOUR_ID_HERE/");
+  const [tmUrl, setTmUrl] = useState("https://teachablemachine.withgoogle.com/models/MUD5GsV1U/");
+  const [confidenceThreshold, setConfidenceThreshold] = useState(0.85);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFile = (file: File) => {
@@ -138,8 +137,9 @@ export function SubmitWastePage() {
     try {
       let tmCategory = null;
       let tmConfidence = null;
+      let tmPredictions: ProbabilityMap = {};
 
-      if (selectedEngine === "teachable-machine") {
+      if (selectedEngine === "echo_engine") {
         try {
           const modelURL = tmUrl.endsWith('/') ? tmUrl + "model.json" : tmUrl + "/model.json";
           const metadataURL = tmUrl.endsWith('/') ? tmUrl + "metadata.json" : tmUrl + "/metadata.json";
@@ -151,6 +151,10 @@ export function SubmitWastePage() {
           
           const prediction = await model.predict(img);
           prediction.sort((a, b) => b.probability - a.probability);
+          tmPredictions = prediction.reduce((acc, item) => {
+            acc[String(item.className).toLowerCase()] = item.probability;
+            return acc;
+          }, {} as ProbabilityMap);
           
           tmCategory = prediction[0].className;
           tmConfidence = prediction[0].probability;
@@ -173,7 +177,8 @@ export function SubmitWastePage() {
             image_b64: uploadedImage, 
             engine: selectedEngine,
             ...(tmCategory && { tm_category: tmCategory }),
-            ...(tmConfidence !== null && { tm_confidence: tmConfidence })
+            ...(tmConfidence !== null && { tm_confidence: tmConfidence }),
+            ...(Object.keys(tmPredictions).length > 0 && { tm_predictions: tmPredictions }),
         })
       });
 
@@ -207,10 +212,14 @@ export function SubmitWastePage() {
       const { submission, points_awarded, status: responseStatus, message } = payload;
       const isHigh = responseStatus === 'REWARDED' || responseStatus === 'REWARDED_VIA_DISPUTE';
       const isDisputeResolved = responseStatus === 'REWARDED_VIA_DISPUTE';
+      const classification = payload.classification || {};
+      const threshold = Number(classification.threshold ?? confidenceThreshold);
+      setConfidenceThreshold(threshold);
+      const probabilities = (classification.primary_distribution || {}) as ProbabilityMap;
       
       // Map API result to fakeResult shape
       const fakeResult = {
-        category: submission.category.charAt(0).toUpperCase() + submission.category.slice(1),
+        category: formatCategoryLabel(String(submission.category || "unknown")),
         subcategory: "Recognized System Category",
         confidence: parseFloat(submission.confidence_score),
         emoji: submission.category === 'organic' ? '🌱' : submission.category === 'e-waste' ? '💻' : submission.category === 'hazardous' ? '⚠️' : '♻️',
@@ -219,8 +228,15 @@ export function SubmitWastePage() {
         badge: isHigh ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700',
         points: points_awarded || 0,
         status: isHigh ? "approved" : "dispute",
-        modelA: { category: "Primary", confidence: parseFloat(payload.classification.primary_confidence) },
-        modelB: { category: "Alternative", confidence: parseFloat(payload.classification.secondary_confidence) },
+        modelA: {
+          category: classification.primary_engine || "Echo_engine (Teachable Machine)",
+          confidence: parseFloat(classification.primary_confidence ?? 0),
+        },
+        modelB: {
+          category: classification.secondary_engine || "Gemini High Accuracy Fallback",
+          confidence: parseFloat(classification.secondary_confidence ?? 0),
+        },
+        probabilities,
         tips: ["Check your profile points!"],
         isDisputeResolved,
         isPenalty: false,
@@ -253,6 +269,19 @@ export function SubmitWastePage() {
       : c >= 0.5
         ? "from-amber-500 to-yellow-400"
         : "from-red-500 to-red-400";
+  const formatCategoryLabel = (category: string) =>
+    category
+      .split("-")
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join("-");
+  const primaryProgressLabel =
+    selectedEngine === "echo_engine"
+      ? "Echo_engine (Teachable Machine)"
+      : "Gemini High Accuracy";
+  const secondaryProgressLabel =
+    selectedEngine === "echo_engine"
+      ? "Gemini High Accuracy Fallback"
+      : "Gemini Consensus Check";
 
   return (
     <div className="p-4 lg:p-6 max-w-5xl mx-auto">
@@ -331,29 +360,20 @@ export function SubmitWastePage() {
                 </button>
               ))}
             </div>
-            <div className="mt-3 flex items-start gap-2 text-xs text-gray-400 bg-gray-50 rounded-xl p-3">
-              <Info className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
-              <span>
-                Confidence threshold is set at <strong>0.75</strong> in system
-                configuration. Scores below this trigger dispute resolution.
-              </span>
-            </div>
-
-            {selectedEngine === "teachable-machine" && (
+            {selectedEngine === "echo_engine" && (
               <div className="mt-4 animate-in fade-in slide-in-from-top-2">
                 <label className="block text-sm font-semibold text-gray-900 mb-1.5">
-                  Paste Model URL
+                  Echo Model URL
                 </label>
                 <input
                   type="text"
                   value={tmUrl}
                   onChange={(e) => setTmUrl(e.target.value)}
-                  className="w-full text-sm border-gray-300 border bg-white rounded-xl px-3 py-2.5 outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-all text-gray-700"
+                  className="w-full text-sm border-gray-300 border bg-white rounded-xl px-3 py-2.5 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all text-gray-700"
                   placeholder="https://teachablemachine.withgoogle.com/models/.../"
                 />
                 <p className="text-xs text-gray-400 mt-1.5 ml-1 leading-snug">
-                  Publish your TM Image Model and paste the shareable link above! 
-                  It will load directly inside your browser.
+                  Echo_engine uses this Teachable Machine model before deciding whether Gemini fallback is needed.
                 </p>
               </div>
             )}
@@ -477,19 +497,23 @@ export function SubmitWastePage() {
                       <RefreshCw className="w-5 h-5 text-emerald-500 animate-spin" />
                       <div>
                         <p className="font-semibold text-gray-900 text-sm">
-                          Analyzing with {selectedEngine === "dual" ? "Dual Engine" : selectedEngine}...
+                          {selectedEngine === "echo_engine"
+                            ? "Analyzing with Echo_engine first, Gemini on fallback..."
+                            : "Analyzing with Gemini high-accuracy engine..."}
                         </p>
                         <p className="text-xs text-gray-400">
-                          Running classification models
+                          {selectedEngine === "echo_engine"
+                            ? "Running Teachable Machine detection and confidence checks"
+                            : "Running direct Gemini classification"}
                         </p>
                       </div>
                     </div>
 
                     <div className="space-y-3">
                       {[
-                        { label: "VisionNet v3", progress: analysisProgress },
+                        { label: primaryProgressLabel, progress: analysisProgress },
                         {
-                          label: "EcoClassifier",
+                          label: secondaryProgressLabel,
                           progress: Math.max(0, analysisProgress - 15),
                         },
                       ].map((m, i) => (
@@ -540,7 +564,7 @@ export function SubmitWastePage() {
                             Low Confidence — Dispute Triggered
                           </p>
                           <p className="text-xs text-amber-600">
-                            Score {(result.confidence * 100).toFixed(0)}% is below the 75% threshold. A
+                            Score {(result.confidence * 100).toFixed(0)}% is below the {(confidenceThreshold * 100).toFixed(0)}% threshold. A
                             moderator will review this submission before points
                             are awarded.
                           </p>
@@ -551,10 +575,10 @@ export function SubmitWastePage() {
                         <CheckCircle className="w-5 h-5 text-emerald-600 flex-shrink-0" />
                         <div>
                           <p className="text-sm font-bold text-emerald-800">
-                            Resolved via Alternative Engine
+                            Resolved via Gemini Fallback
                           </p>
                           <p className="text-xs text-emerald-600">
-                            {result.message || "Primary model had low confidence, but alternative model resolved the dispute — points awarded!"}
+                            {result.message || "Echo_engine confidence was low, but Gemini high-accuracy fallback resolved it and points were awarded."}
                           </p>
                         </div>
                       </div>
@@ -611,11 +635,11 @@ export function SubmitWastePage() {
                       <div className="grid grid-cols-2 gap-2">
                         {[
                           {
-                            name: "Primary Engine",
+                            name: "Primary Result",
                             data: result.modelA,
                           },
                           {
-                            name: "Alternative Engine",
+                            name: "Fallback Result",
                             data: result.modelB,
                           },
                         ].map((m, i) => (
@@ -635,6 +659,32 @@ export function SubmitWastePage() {
                           </div>
                         ))}
                       </div>
+
+                      {!!Object.keys(result.probabilities || {}).length && (
+                        <div className="mt-3 rounded-xl bg-white/70 p-3">
+                          <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2">
+                            Category Probabilities
+                          </p>
+                          <div className="space-y-2">
+                            {Object.entries(result.probabilities)
+                              .sort((a, b) => b[1] - a[1])
+                              .map(([category, score]) => (
+                                <div key={category}>
+                                  <div className="mb-1 flex items-center justify-between text-xs text-gray-600">
+                                    <span className="font-medium">{formatCategoryLabel(category)}</span>
+                                    <span>{(score * 100).toFixed(0)}%</span>
+                                  </div>
+                                  <div className="h-1.5 rounded-full bg-gray-200 overflow-hidden">
+                                    <div
+                                      className={`h-full bg-gradient-to-r ${confidenceBg(score)} rounded-full`}
+                                      style={{ width: `${score * 100}%` }}
+                                    />
+                                  </div>
+                                </div>
+                              ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     {/* Points */}

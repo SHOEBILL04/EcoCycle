@@ -12,8 +12,8 @@ import { ProfilePage } from "./pages/ProfilePage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { RewardsPage } from "./pages/RewardsPage";
 import { ModeratorPage } from "./pages/ModeratorPage";
-import { AdminPage } from "./pages/AdminPage";
 import { AuditTrailPage } from "./pages/AuditTrailPage";
+import { AdminDashboardPage } from "./pages/AdminDashboardPage";
 
 export const router = createBrowserRouter([
   {
@@ -27,6 +27,14 @@ export const router = createBrowserRouter([
   {
     path: "/signup",
     Component: SignUpPage,
+  },
+  {
+    path: "/admin/dashboard",
+    element: (
+      <ProtectedRoute requiredRole="admin">
+        <AdminDashboardPage />
+      </ProtectedRoute>
+    ),
   },
   {
     // All /app/* routes require authentication at minimum
@@ -61,7 +69,7 @@ export const router = createBrowserRouter([
         path: "admin",
         element: (
           <ProtectedRoute requiredRole="admin">
-            <AdminPage />
+            <AdminDashboardPage />
           </ProtectedRoute>
         ),
       },

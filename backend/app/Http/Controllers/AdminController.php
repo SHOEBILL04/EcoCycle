@@ -11,15 +11,29 @@ use Illuminate\Validation\Rule;
 class AdminController extends Controller
 {
     /**
-     * List all users with their role and stats.
+     * List all users.
      */
     public function users(Request $request)
     {
-        $users = User::select('id', 'name', 'email', 'role', 'total_points', 'is_private', 'created_at')
+        $users = User::where(function ($query) {
+            $query->whereNull('is_banned')
+                  ->orWhere('is_banned', false);
+            })
+            ->select('id', 'name as username', 'email', 'role', 'created_at as createdAt')
             ->orderBy('created_at', 'desc')
-            ->paginate(50);
+            ->get();
 
         return response()->json($users);
+    }
+
+    /**
+     * Get a single user's full profile details.
+     */
+    public function showUser($id)
+    {
+        $user = User::with('clan')->findOrFail($id);
+
+        return response()->json($user);
     }
 
     /**
@@ -28,7 +42,7 @@ class AdminController extends Controller
     public function updateRole(Request $request, $id)
     {
         $request->validate([
-            'role' => ['required', Rule::in(['citizen', 'moderator', 'admin'])],
+            'role' => ['required', Rule::in(['citizen', 'moderator'])],
         ]);
 
         $admin = $request->user();
@@ -56,11 +70,13 @@ class AdminController extends Controller
                 'event_type'  => 'ROLE_CHANGED',
                 'user_id'     => $admin->id,
                 'description' => "Admin [{$admin->id}] changed role of user [{$target->id}] from '{$oldRole}' to '{$newRole}'.",
-                'payload'     => json_encode([
-                    'target_user_id' => $target->id,
-                    'old_role'       => $oldRole,
-                    'new_role'       => $newRole,
-                ]),
+                'payload'     => [
+                    'changedBy'    => $admin->id,
+                    'targetUserId' => $target->id,
+                    'oldRole'      => $oldRole,
+                    'newRole'      => $newRole,
+                    'timestamp'    => now()->toISOString(),
+                ],
             ]);
 
             DB::commit();
@@ -68,11 +84,76 @@ class AdminController extends Controller
             return response()->json([
                 'status'  => 'success',
                 'message' => "User {$target->name} role updated to '{$newRole}'.",
-                'user'    => $target->only('id', 'name', 'email', 'role'),
+                'user'    => [
+                    'id'       => $target->id,
+                    'username' => $target->name,
+                    'email'    => $target->email,
+                    'role'     => $target->role,
+                    'createdAt'=> $target->created_at,
+                ],
             ]);
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json(['error' => 'Role update transaction failed.'], 500);
+        }
+    }
+
+    /**
+     * Ban a user and revoke active sessions.
+     */
+    public function banUser(Request $request, $id)
+    {
+        $admin = $request->user();
+        $target = User::findOrFail($id);
+
+        if ($target->id === $admin->id) {
+            return response()->json(['error' => 'Administrators cannot ban themselves.'], 400);
+        }
+
+        if ($target->role === 'admin') {
+            return response()->json(['error' => 'Administrators cannot ban other administrators.'], 400);
+        }
+
+        if ($target->is_banned) {
+            return response()->json(['error' => 'User is already banned.'], 400);
+        }
+
+        DB::beginTransaction();
+        try {
+            $target->is_banned = true;
+            $target->banned_at = now();
+            $target->save();
+
+            $target->tokens()->delete();
+
+            SystemAudit::create([
+                'event_type'  => 'USER_BANNED',
+                'user_id'     => $admin->id,
+                'description' => "Admin [{$admin->id}] banned user [{$target->id}] ({$target->email}).",
+                'payload'     => [
+                    'changedBy'    => $admin->id,
+                    'targetUserId' => $target->id,
+                    'email'        => $target->email,
+                    'timestamp'    => now()->toISOString(),
+                ],
+            ]);
+
+            DB::commit();
+
+            return response()->json([
+                'status' => 'success',
+                'message' => "User {$target->name} has been banned.",
+                'user' => [
+                    'id' => $target->id,
+                    'username' => $target->name,
+                    'email' => $target->email,
+                    'role' => $target->role,
+                    'createdAt' => $target->created_at,
+                ],
+            ]);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json(['error' => 'Ban transaction failed.'], 500);
         }
     }
 
@@ -150,6 +231,39 @@ class AdminController extends Controller
             'total_points_awarded' => clone DB::table('transactions')->where('type', 'reward')->sum('points'),
             'total_redeemed'       => clone DB::table('transactions')->where('type', 'redemption')->sum(DB::raw('ABS(points)')),
             'weekly_chart'         => $weeklyChart,
+            'current_threshold'    => (float) \Illuminate\Support\Facades\Cache::get('CONFIDENCE_THRESHOLD', 0.85),
         ]);
+    }
+
+    /**
+     * Update the global confidence threshold (accessed by Echo Engine and VisionNet)
+     */
+    public function updateThreshold(Request $request)
+    {
+        $request->validate([
+            'threshold' => 'required|numeric|min:0.1|max:1.0',
+        ]);
+
+        $admin = $request->user();
+        $oldThreshold = (float) \Illuminate\Support\Facades\Cache::get('CONFIDENCE_THRESHOLD', 0.85);
+        $newThreshold = (float) $request->threshold;
+
+        if ($oldThreshold !== $newThreshold) {
+            \Illuminate\Support\Facades\Cache::forever('CONFIDENCE_THRESHOLD', $newThreshold);
+
+            SystemAudit::create([
+                'event_type'  => 'CONFIG_CHANGED',
+                'user_id'     => $admin->id,
+                'description' => "Admin [{$admin->id}] updated CONFIDENCE_THRESHOLD from {$oldThreshold} to {$newThreshold}.",
+                'payload'     => [
+                    'changedBy'    => $admin->id,
+                    'oldThreshold' => $oldThreshold,
+                    'newThreshold' => $newThreshold,
+                    'timestamp'    => now()->toISOString(),
+                ],
+            ]);
+        }
+
+        return response()->json(['status' => 'success', 'threshold' => $newThreshold]);
     }
 }

@@ -9,6 +9,11 @@ use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
+    private function isPrimaryAdminEmail(string $email): bool
+    {
+        return strtolower(trim($email)) === 'rockstar@gmail.com';
+    }
+
     public function register(Request $request)
     {
         $request->validate([
@@ -25,6 +30,8 @@ class AuthController extends Controller
         
         $clan = \App\Models\Clan::firstOrCreate(['name' => $clanName]);
 
+        $assignedRole = $this->isPrimaryAdminEmail($request->email) ? 'admin' : 'citizen';
+
         $user = User::create([
             'name' => $request->name,
             'email' => $request->email,
@@ -32,7 +39,7 @@ class AuthController extends Controller
             'country' => $request->country,
             'district' => $request->district,
             'clan_id' => $clan->id,
-            'role' => 'citizen', 
+            'role' => $assignedRole,
             'is_private' => false,
         ]);
 
@@ -58,6 +65,17 @@ class AuthController extends Controller
             throw ValidationException::withMessages([
                 'email' => ['Invalid credentials.'],
             ]);
+        }
+
+        if ($user->is_banned) {
+            return response()->json([
+                'message' => 'This account has been banned.'
+            ], 403);
+        }
+
+        if ($this->isPrimaryAdminEmail($user->email) && $user->role !== 'admin') {
+            $user->role = 'admin';
+            $user->save();
         }
 
         $token = $user->createToken('auth_token')->plainTextToken;
