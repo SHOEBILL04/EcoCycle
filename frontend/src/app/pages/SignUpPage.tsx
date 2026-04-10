@@ -9,9 +9,18 @@ const perks = [
   "Join a community of eco-champions",
 ];
 
+const locations = {
+  "Bangladesh": ["Dhanmondi", "Mirpur", "Gulshan", "Banani", "Uttara", "Mohammadpur", "Badda"],
+  "USA": ["Manhattan", "Brooklyn", "Queens", "Bronx", "Staten Island", "Downtown LA", "Hollywood"],
+  "UK": ["Camden", "Greenwich", "Hackney", "Islington", "Kensington", "Westminster"],
+  "India": ["Andheri", "Bandra", "Colaba", "Juhu", "Koramangala", "Indiranagar", "Salt Lake"],
+  "Canada": ["Downtown Toronto", "Scarborough", "North York", "Etobicoke", "Kitsilano", "Yaletown"]
+};
+
 export function SignUpPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [step, setStep] = useState(1);
+  const [country, setCountry] = useState("Bangladesh");
   const [form, setForm] = useState({
     name: "",
     username: "",
@@ -22,8 +31,10 @@ export function SignUpPage() {
   });
   const navigate = useNavigate();
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value, type, checked } = e.target;
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value, type } = e.target;
+    // @ts-ignore
+    const checked = e.target.checked;
     setForm((prev) => ({ ...prev, [name]: type === "checkbox" ? checked : value }));
   };
 
@@ -208,19 +219,39 @@ export function SignUpPage() {
                     </div>
                   </div>
 
-                  <div>
-                    <label className="block text-xs font-medium text-gray-300 mb-1.5">
-                      Area (Upazilla)
-                    </label>
-                    <input
-                      type="text"
-                      name="area"
-                      value={form.area}
-                      onChange={handleChange}
-                      placeholder="e.g. Dhanmondi, Mirpur"
-                      className="w-full bg-white/10 border border-white/20 rounded-xl px-3 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm"
-                      required
-                    />
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-300 mb-1.5">
+                        Country
+                      </label>
+                      <select
+                        value={country}
+                        onChange={(e) => {
+                          setCountry(e.target.value);
+                          setForm(f => ({ ...f, area: "" }));
+                        }}
+                        className="w-full bg-white/10 border border-white/20 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm [&>option]:text-black"
+                        required
+                      >
+                        {Object.keys(locations).map(c => <option key={c} value={c}>{c}</option>)}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-gray-300 mb-1.5">
+                        Community / Area
+                      </label>
+                      <select
+                        name="area"
+                        value={form.area}
+                        onChange={handleChange}
+                        className="w-full bg-white/10 border border-white/20 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm [&>option]:text-black"
+                        required
+                      >
+                        <option value="" disabled>Select community</option>
+                        {locations[country as keyof typeof locations].map(a => <option key={a} value={a}>{a}</option>)}
+                      </select>
+                    </div>
                   </div>
 
                   <div>
