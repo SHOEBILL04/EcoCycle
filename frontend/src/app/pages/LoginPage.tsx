@@ -22,7 +22,10 @@ export function LoginPage() {
       if (res.ok) {
          const data = await res.json();
          localStorage.setItem('access_token', data.access_token);
-         navigate("/app");
+         localStorage.setItem('role', data.role ?? data.user?.role ?? 'citizen');
+         localStorage.setItem('user_id', String(data.user?.id ?? ''));
+         localStorage.setItem('user_email', data.user?.email ?? '');
+         navigate('/app');
       } else {
          const errorInfo = await res.json();
          alert('Login failed: ' + (errorInfo.message || 'Invalid credentials'));
@@ -112,31 +115,6 @@ export function LoginPage() {
                   )}
                 </button>
               </div>
-            </div>
-
-            {/* Role demo selector */}
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Demo Role
-              </label>
-              <div className="grid grid-cols-3 gap-2">
-                {["Citizen", "Moderator", "Administrator"].map((role) => (
-                  <button
-                    key={role}
-                    type="button"
-                    className={`py-2 px-3 rounded-xl text-xs font-medium border transition-all ${
-                      role === "Citizen"
-                        ? "bg-emerald-500/20 border-emerald-500/50 text-emerald-300"
-                        : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10"
-                    }`}
-                  >
-                    {role}
-                  </button>
-                ))}
-              </div>
-              <p className="text-xs text-gray-500 mt-1.5">
-                Demo only — role enforcement is applied at the API level
-              </p>
             </div>
 
             <button

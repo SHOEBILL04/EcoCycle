@@ -8,6 +8,7 @@ import {
   User,
   Gift,
   Settings,
+  Shield,
 
 
   LogOut,
@@ -19,7 +20,7 @@ import {
   Recycle,
 } from "lucide-react";
 
-const navItems = [
+const baseNavItems = [
   { label: "Dashboard", icon: LayoutDashboard, path: "/app" },
   { label: "Submit Waste", icon: Camera, path: "/app/submit" },
   { label: "Leaderboard", icon: Trophy, path: "/app/leaderboard" },
@@ -34,14 +35,14 @@ const navItems = [
 // User roles for type safety
 type UserRole = "Citizen" | "Moderator" | "Administrator";
 
-// Get role from storage, default to Administrator for demo/dev purposes
-const currentRole = (localStorage.getItem("role") || "Administrator") as UserRole;
-
 export function AppLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [user, setUser] = useState<any>(null);
+  const [currentRole, setCurrentRole] = useState<UserRole>("Citizen");
   const [profileOpen, setProfileOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
@@ -54,17 +55,68 @@ export function AppLayout() {
     })
     .then(res => res.json())
     .then(data => {
-        if (data.id) setUser(data);
+        if (data.id) {
+          setUser(data);
+          const normalizedRole = String(data.role ?? 'citizen').toLowerCase();
+          localStorage.setItem('role', normalizedRole);
+          localStorage.setItem('user_email', data.email ?? '');
+          const roleText: UserRole =
+            normalizedRole === 'admin'
+              ? 'Administrator'
+              : normalizedRole === 'moderator'
+                ? 'Moderator'
+                : 'Citizen';
+          setCurrentRole(roleText);
+        }
+    })
+    .catch(console.error);
+
+    fetch('http://localhost:8000/api/notifications', {
+        headers: {
+            'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+            'Accept': 'application/json'
+        }
+    })
+    .then(res => res.json())
+    .then(data => {
+        const list = data.notifications || [];
+        setNotifications(list);
+        setUnreadCount(typeof data.unreadCount === 'number' ? data.unreadCount : list.filter((n: any) => !n.is_read).length);
     })
     .catch(console.error);
   }, []);
+
+  const markNotificationRead = async (notificationId: number) => {
+    try {
+      await fetch(`http://localhost:8000/api/notifications/${notificationId}/read`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+          'Accept': 'application/json'
+        }
+      });
+
+      setNotifications(prev => prev.map(n => n.id === notificationId ? { ...n, is_read: true } : n));
+      setUnreadCount(prev => Math.max(0, prev - 1));
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const isAdmin =
+    (user?.email ?? localStorage.getItem('user_email') ?? '').toLowerCase() === 'rockstar@gmail.com' ||
+    (localStorage.getItem('role') ?? '').toLowerCase() === 'admin';
+
+  const navItems = isAdmin
+    ? [...baseNavItems, { label: "Admin Dashboard", icon: Shield, path: "/app/admin" }]
+    : baseNavItems;
 
   const isActive = (path: string) => {
     if (path === "/app") return location.pathname === "/app";
     return location.pathname.startsWith(path);
   };
 
-  const NavLink = ({ item }: { item: (typeof navItems)[0] }) => (
+  const NavLink = ({ item }: { item: { label: string; icon: any; path: string } }) => (
     <Link
       to={item.path}
       onClick={() => setMobileSidebarOpen(false)}
@@ -206,7 +258,11 @@ export function AppLayout() {
                 className="relative p-2 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors"
               >
                 <Bell className="w-5 h-5" />
-                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-emerald-500 rounded-full"></span>
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1 bg-emerald-600 text-white text-[10px] rounded-full flex items-center justify-center font-bold">
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </span>
+                )}
               </button>
               {notifOpen && (
                 <div className="absolute right-0 top-12 w-80 bg-white rounded-2xl shadow-xl border border-gray-100 z-50">
@@ -216,40 +272,23 @@ export function AppLayout() {
                     </h3>
                   </div>
                   <div className="divide-y divide-gray-50">
-                    {[
-                      {
-                        icon: "🏆",
-                        msg: "You ranked #5 on the weekly leaderboard!",
-                        time: "2m ago",
-                      },
-                      {
-                        icon: "✅",
-                        msg: "Your plastic bottle submission was approved",
-                        time: "15m ago",
-                      },
-                      {
-                        icon: "⚠️",
-                        msg: "Dispute raised on e-waste submission #483",
-                        time: "1h ago",
-                      },
-                      {
-                        icon: "👥",
-                        msg: "EcoWarrior99 started following you",
-                        time: "3h ago",
-                      },
-                    ].map((n, i) => (
-                      <div
-                        key={i}
-                        className="flex gap-3 p-3 hover:bg-gray-50 cursor-pointer"
+                    {notifications.length === 0 && (
+                      <div className="p-4 text-sm text-gray-500">No notifications yet.</div>
+                    )}
+                    {notifications.map((n) => (
+                      <button
+                        key={n.id}
+                        onClick={() => markNotificationRead(n.id).catch(console.error)}
+                        className={`w-full text-left flex gap-3 p-3 hover:bg-gray-50 cursor-pointer ${n.is_read ? 'bg-white' : 'bg-emerald-50/40'}`}
                       >
-                        <span className="text-xl">{n.icon}</span>
+                        <span className="text-xl">{n.type === 'dispute_raised' ? '⚠️' : '✅'}</span>
                         <div className="flex-1">
-                          <p className="text-sm text-gray-700">{n.msg}</p>
+                          <p className="text-sm text-gray-700">{n.message}</p>
                           <p className="text-xs text-gray-400 mt-0.5">
-                            {n.time}
+                            {new Date(n.created_at).toLocaleString()}
                           </p>
                         </div>
-                      </div>
+                      </button>
                     ))}
                   </div>
                 </div>

@@ -21,6 +21,8 @@ return new class extends Migration
             $table->integer('total_points')->default(0)->index();
             $table->string('user_title')->default('Citizen');
             $table->enum('role', ['citizen', 'moderator', 'admin'])->default('citizen');
+            $table->boolean('is_banned')->default(false);
+            $table->timestamp('banned_at')->nullable();
             $table->boolean('is_private')->default(false);
             $table->rememberToken();
             $table->timestamps();
