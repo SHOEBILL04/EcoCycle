@@ -26,12 +26,37 @@ export function SignUpPage() {
     setForm((prev) => ({ ...prev, [name]: type === "checkbox" ? checked : value }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (step === 1) {
       setStep(2);
     } else {
-      navigate("/app");
+      try {
+        const response = await fetch('http://localhost:8000/api/register', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          body: JSON.stringify({
+            name: form.name,
+            email: form.email,
+            password: form.password,
+            password_confirmation: form.password,
+          })
+        });
+
+        if (response.ok) {
+           const data = await response.json();
+           localStorage.setItem('access_token', data.access_token);
+           navigate("/app");
+        } else {
+           const err = await response.json();
+           alert('Registration failed: ' + (err.message || 'Unknown error'));
+        }
+      } catch (error) {
+        console.error(error);
+      }
     }
   };
 

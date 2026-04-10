@@ -8,9 +8,29 @@ export function LoginPage() {
   const [password, setPassword] = useState("");
   const navigate = useNavigate();
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    navigate("/app");
+    try {
+      const res = await fetch('http://localhost:8000/api/login', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          body: JSON.stringify({ email, password })
+      });
+      if (res.ok) {
+         const data = await res.json();
+         localStorage.setItem('access_token', data.access_token);
+         navigate("/app");
+      } else {
+         const errorInfo = await res.json();
+         alert('Login failed: ' + (errorInfo.message || 'Invalid credentials'));
+      }
+    } catch(err) {
+      console.error(err);
+      alert('Login request failed. Server might be down.');
+    }
   };
 
   return (

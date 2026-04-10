@@ -157,7 +157,26 @@ const categoryColorMap: Record<string, string> = {
   red: "bg-red-100 text-red-700",
 };
 
+import { useState, useEffect } from "react";
+
 export function DashboardPage() {
+  const [stats, setStats] = useState<any>(null);
+  const [submissions, setSubmissions] = useState<any[]>([]);
+
+  useEffect(() => {
+    fetch('http://localhost:8000/api/dashboard', {
+        headers: {
+            'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+        }
+    })
+    .then(res => res.json())
+    .then(data => {
+        setStats(data.stats);
+        setSubmissions(data.recent_submissions);
+    })
+    .catch(console.error);
+  }, []);
+
   return (
     <div className="p-4 lg:p-6 max-w-7xl mx-auto">
       {/* Header */}

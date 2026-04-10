@@ -17,7 +17,9 @@ return new class extends Migration
             $table->string('category');
             $table->string('subcategory')->nullable();
             $table->decimal('confidence_score', 5, 2);
+            $table->decimal('secondary_confidence_score', 5, 2)->nullable();
             $table->enum('status', ['SUBMITTED', 'PENDING', 'RESOLVED', 'REWARDED', 'FLAGGED'])->default('SUBMITTED')->index();
+            $table->string('flagged_reason')->nullable();
             $table->string('image_hash')->index();
             $table->timestamps();
         });
