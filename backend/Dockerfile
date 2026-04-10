@@ -35,5 +35,5 @@ RUN chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache
 # Expose port 8080
 EXPOSE 8080
 
-# Start PHP-FPM and use built-in server for simplicity in free tiers
-CMD php artisan serve --host=0.0.0.0 --port=8080
+# Start migrations and then the PHP server
+CMD php artisan migrate --force && php artisan serve --host=0.0.0.0 --port=8080
