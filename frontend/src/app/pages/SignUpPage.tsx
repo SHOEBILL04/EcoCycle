@@ -17,6 +17,7 @@ export function SignUpPage() {
     username: "",
     email: "",
     password: "",
+    area: "",
     agree: false,
   });
   const navigate = useNavigate();
@@ -43,6 +44,7 @@ export function SignUpPage() {
             email: form.email,
             password: form.password,
             password_confirmation: form.password,
+            area: form.area,
           })
         });
 
@@ -204,6 +206,21 @@ export function SignUpPage() {
                         required
                       />
                     </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-gray-300 mb-1.5">
+                      Area (Upazilla)
+                    </label>
+                    <input
+                      type="text"
+                      name="area"
+                      value={form.area}
+                      onChange={handleChange}
+                      placeholder="e.g. Dhanmondi, Mirpur"
+                      className="w-full bg-white/10 border border-white/20 rounded-xl px-3 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm"
+                      required
+                    />
                   </div>
 
                   <div>
