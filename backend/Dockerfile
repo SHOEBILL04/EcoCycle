@@ -35,5 +35,5 @@ RUN chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache
 # Expose port 8080
 EXPOSE 8080
 
-# Start migrations and then the PHP server
-CMD php artisan migrate --force && php artisan serve --host=0.0.0.0 --port=8080
+# Start migrations, seeders, and then the PHP server
+CMD php artisan migrate --force && php artisan db:seed --force && php artisan serve --host=0.0.0.0 --port=8080

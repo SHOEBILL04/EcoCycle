@@ -62,7 +62,7 @@ class SubmissionController extends Controller
             try {
                 // Use atomic update to prevent race conditions (stale data overwriting recent rewards)
                 DB::table('users')->where('id', $user->id)->update([
-                    'total_points' => DB::raw("GREATEST(0, CAST(total_points AS SIGNED) - 30)"),
+                    'total_points' => DB::raw("GREATEST(0, CAST(total_points AS INTEGER) - 30)"),
                     'flags' => DB::raw("flags + 1")
                 ]);
                 $user->refresh(); // Sync the in-memory object for the response below

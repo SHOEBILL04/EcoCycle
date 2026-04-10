@@ -140,7 +140,7 @@ class ModeratorController extends Controller
             $owner = User::find($submission->user_id);
             if ($owner) {
                 DB::table('users')->where('id', $owner->id)->update([
-                    'total_points' => DB::raw("GREATEST(0, CAST(total_points AS SIGNED) - 10)")
+                    'total_points' => DB::raw("GREATEST(0, CAST(total_points AS INTEGER) - 10)")
                 ]);
             }
 
