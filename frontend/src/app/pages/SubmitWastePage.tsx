@@ -61,6 +61,9 @@ const mockResults = {
       "Remove any lids or caps",
       "Crush to save space in the bin",
     ],
+    isDisputeResolved: false,
+    isPenalty: false,
+    message: "",
   },
   low: {
     category: "E-Waste",
@@ -80,6 +83,9 @@ const mockResults = {
       "Never dispose in regular trash",
       "Check for manufacturer take-back programs",
     ],
+    isDisputeResolved: false,
+    isPenalty: false,
+    message: "",
   },
 };
 
@@ -127,7 +133,7 @@ export function SubmitWastePage() {
           'Accept': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('access_token')}`
         },
-        body: JSON.stringify({ image_b64: uploadedImage })
+        body: JSON.stringify({ image_b64: uploadedImage, engine: selectedEngine })
       });
 
       clearInterval(interval);
@@ -136,13 +142,17 @@ export function SubmitWastePage() {
       const payload = await response.json();
       
       if (response.status === 422 && payload.status === 'FLAGGED') {
+        const isPenalty = payload.penalty !== undefined;
         const fakeResult = {
-          category: 'Unknown', subcategory: 'Fraud detected', confidence: 0, 
-          emoji: "⚠️", color: "amber", bg: "bg-amber-50", border: "border-amber-200", 
-          badge: "bg-amber-100 text-amber-700", points: 0, status: "dispute",
+          category: 'Unknown', subcategory: isPenalty ? 'Cheating Detected' : 'Fraud detected', confidence: 0, 
+          emoji: "⚠️", color: isPenalty ? "red" : "amber", bg: isPenalty ? "bg-red-50" : "bg-amber-50", border: isPenalty ? "border-red-200" : "border-amber-200", 
+          badge: isPenalty ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700", points: payload.penalty ? -payload.penalty : 0, status: "dispute",
           modelA: { category: '-', confidence: 0 },
           modelB: { category: '-', confidence: 0 },
-          tips: [payload.message]
+          tips: [payload.message],
+          isDisputeResolved: false,
+          isPenalty: isPenalty,
+          message: payload.message
         };
         setResult(fakeResult as any);
         setStatus("dispute");
@@ -153,8 +163,9 @@ export function SubmitWastePage() {
         throw new Error('Classification failed');
       }
 
-      const { submission, points_awarded } = payload;
-      const isHigh = submission.status === 'REWARDED';
+      const { submission, points_awarded, status: responseStatus, message } = payload;
+      const isHigh = responseStatus === 'REWARDED' || responseStatus === 'REWARDED_VIA_DISPUTE';
+      const isDisputeResolved = responseStatus === 'REWARDED_VIA_DISPUTE';
       
       // Map API result to fakeResult shape
       const fakeResult = {
@@ -167,9 +178,12 @@ export function SubmitWastePage() {
         badge: isHigh ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700',
         points: points_awarded || 0,
         status: isHigh ? "approved" : "dispute",
-        modelA: { category: submission.category, confidence: parseFloat(submission.confidence_score) },
-        modelB: { category: submission.category, confidence: parseFloat(submission.secondary_confidence_score || '0') },
-        tips: ["Check your profile points!"]
+        modelA: { category: "Primary", confidence: parseFloat(payload.classification.primary_confidence) },
+        modelB: { category: "Alternative", confidence: parseFloat(payload.classification.secondary_confidence) },
+        tips: ["Check your profile points!"],
+        isDisputeResolved,
+        isPenalty: false,
+        message
       };
       
       setResult(fakeResult as any);
@@ -442,7 +456,19 @@ export function SubmitWastePage() {
                     className="p-5"
                   >
                     {/* Status banner */}
-                    {status === "dispute" ? (
+                    {result.isPenalty ? (
+                      <div className="flex items-center gap-3 bg-red-50 border border-red-200 rounded-xl p-3 mb-4">
+                        <AlertTriangle className="w-5 h-5 text-red-600 flex-shrink-0" />
+                        <div>
+                          <p className="text-sm font-bold text-red-800">
+                            Penalty Applied — Duplicate Submission
+                          </p>
+                          <p className="text-xs text-red-600">
+                            {result.message}
+                          </p>
+                        </div>
+                      </div>
+                    ) : status === "dispute" ? (
                       <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4">
                         <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0" />
                         <div>
@@ -453,6 +479,18 @@ export function SubmitWastePage() {
                             Score {(result.confidence * 100).toFixed(0)}% is below the 75% threshold. A
                             moderator will review this submission before points
                             are awarded.
+                          </p>
+                        </div>
+                      </div>
+                    ) : result.isDisputeResolved ? (
+                      <div className="flex items-center gap-3 bg-emerald-50 border border-emerald-200 rounded-xl p-3 mb-4">
+                        <CheckCircle className="w-5 h-5 text-emerald-600 flex-shrink-0" />
+                        <div>
+                          <p className="text-sm font-bold text-emerald-800">
+                            Resolved via Alternative Engine
+                          </p>
+                          <p className="text-xs text-emerald-600">
+                            {result.message || "Primary model had low confidence, but alternative model resolved the dispute — points awarded!"}
                           </p>
                         </div>
                       </div>
@@ -509,11 +547,11 @@ export function SubmitWastePage() {
                       <div className="grid grid-cols-2 gap-2">
                         {[
                           {
-                            name: "VisionNet v3",
+                            name: "Primary Engine",
                             data: result.modelA,
                           },
                           {
-                            name: "EcoClassifier",
+                            name: "Alternative Engine",
                             data: result.modelB,
                           },
                         ].map((m, i) => (
@@ -542,11 +580,13 @@ export function SubmitWastePage() {
                         <span className="text-sm text-gray-600">Points</span>
                       </div>
                       <span
-                        className={`text-base font-bold ${status === "dispute" ? "text-gray-400" : "text-emerald-600"}`}
+                        className={`text-base font-bold ${result.isPenalty ? "text-red-600" : status === "dispute" ? "text-gray-400" : "text-emerald-600"}`}
                       >
-                        {status === "dispute"
-                          ? "Pending resolution"
-                          : `+${result.points} pts`}
+                        {result.isPenalty
+                          ? `${result.points} pts`
+                          : status === "dispute"
+                            ? "Pending resolution"
+                            : `+${result.points} pts`}
                       </span>
                     </div>
 

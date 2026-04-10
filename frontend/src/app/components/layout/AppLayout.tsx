@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Outlet, Link, useLocation, useNavigate } from "react-router";
 import {
   LayoutDashboard,
@@ -39,15 +39,33 @@ const adminItems = [
   { label: "Audit Trail", icon: ScrollText, path: "/app/audit" },
 ];
 
-// Demo state: current role
-const currentRole = "Administrator"; // "Citizen" | "Moderator" | "Administrator"
+// User roles for type safety
+type UserRole = "Citizen" | "Moderator" | "Administrator";
+
+// Get role from storage, default to Administrator for demo/dev purposes
+const currentRole = (localStorage.getItem("role") || "Administrator") as UserRole;
 
 export function AppLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
+  const [user, setUser] = useState<any>(null);
+  const [profileOpen, setProfileOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    fetch('http://localhost:8000/api/user', {
+        headers: {
+            'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+        }
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.id) setUser(data);
+    })
+    .catch(console.error);
+  }, []);
 
   const isActive = (path: string) => {
     if (path === "/app") return location.pathname === "/app";
@@ -138,19 +156,22 @@ export function AppLayout() {
           className={`flex items-center gap-3 p-2 rounded-xl hover:bg-white/10 cursor-pointer transition-colors ${!sidebarOpen && !mobileSidebarOpen ? "justify-center" : ""}`}
         >
           <div className="w-9 h-9 rounded-full bg-gradient-to-br from-emerald-400 to-green-600 flex items-center justify-center flex-shrink-0 text-white font-bold text-sm">
-            AJ
+            {user?.name ? user.name.slice(0, 2).toUpperCase() : 'U'}
           </div>
           {(sidebarOpen || mobileSidebarOpen) && (
             <div className="flex-1 min-w-0">
               <p className="text-white text-sm font-medium truncate">
-                Alex Johnson
+                {user?.name || 'User'}
               </p>
               <p className="text-emerald-400 text-xs truncate">{currentRole}</p>
             </div>
           )}
           {(sidebarOpen || mobileSidebarOpen) && (
             <button
-              onClick={() => navigate("/")}
+              onClick={() => {
+                localStorage.clear();
+                navigate("/");
+              }}
               className="text-emerald-400 hover:text-white transition-colors"
             >
               <LogOut className="w-4 h-4" />
@@ -207,7 +228,7 @@ export function AppLayout() {
             <div className="hidden sm:flex items-center gap-2 bg-gray-50 rounded-xl px-3 py-2 border border-gray-200">
               <Leaf className="w-4 h-4 text-emerald-500" />
               <span className="text-sm text-gray-600">
-                <span className="font-semibold text-emerald-600">2,840</span>{" "}
+                <span className="font-semibold text-emerald-600">{user?.total_points?.toLocaleString() || 0}</span>{" "}
                 eco points
               </span>
             </div>
@@ -272,11 +293,41 @@ export function AppLayout() {
             </div>
 
             {/* User avatar */}
-            <div className="flex items-center gap-2 cursor-pointer group">
-              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-emerald-400 to-green-600 flex items-center justify-center text-white font-bold text-sm">
-                AJ
-              </div>
-              <ChevronDown className="w-4 h-4 text-gray-400 group-hover:text-gray-600 hidden sm:block" />
+            <div className="relative">
+              <button 
+                onClick={() => setProfileOpen(!profileOpen)}
+                className="flex items-center gap-2 cursor-pointer group"
+              >
+                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-emerald-400 to-green-600 flex items-center justify-center text-white font-bold text-sm">
+                  {user?.name ? user.name.slice(0, 2).toUpperCase() : 'U'}
+                </div>
+                <ChevronDown className="w-4 h-4 text-gray-400 group-hover:text-gray-600 hidden sm:block" />
+              </button>
+
+              {profileOpen && (
+                <div className="absolute right-0 top-12 w-48 bg-white rounded-2xl shadow-xl border border-gray-100 z-50 py-2">
+                  <Link
+                    to="/app/profile"
+                    onClick={() => setProfileOpen(false)}
+                    className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-emerald-50 hover:text-emerald-700 transition-colors"
+                  >
+                    <User className="w-4 h-4" />
+                    Your Profile
+                  </Link>
+                  <div className="h-px bg-gray-100 my-1"></div>
+                  <button
+                    onClick={() => {
+                        setProfileOpen(false);
+                        localStorage.removeItem('access_token');
+                        navigate('/login');
+                    }}
+                    className="flex w-full items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors font-medium"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    Logout
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </header>
