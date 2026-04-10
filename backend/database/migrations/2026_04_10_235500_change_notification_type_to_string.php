@@ -12,8 +12,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        // For PostgreSQL, we change the type to VARCHAR using raw SQL
-        DB::statement("ALTER TABLE notifications ALTER COLUMN type TYPE VARCHAR(255)");
+        DB::statement("ALTER TABLE notifications ALTER COLUMN type TYPE VARCHAR(255) USING type::text");
     }
 
     /**

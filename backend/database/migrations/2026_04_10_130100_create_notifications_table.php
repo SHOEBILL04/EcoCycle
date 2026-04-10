@@ -12,7 +12,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
             $table->text('message');
-            $table->enum('type', ['dispute_raised', 'dispute_resolved']);
+            $table->string('type');
             $table->foreignId('submission_id')->nullable()->constrained()->nullOnDelete();
             $table->boolean('is_read')->default(false);
             $table->timestamps();

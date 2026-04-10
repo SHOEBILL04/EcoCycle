@@ -95,7 +95,6 @@ class SubmissionController extends Controller
                     'message' => "FLAGGED: Repetitive image detected. A 30 point penalty has been applied.",
                     'type' => 'submission_flagged',
                     'submission_id' => $submission->id,
-                    'is_read' => false,
                 ]);
 
                 DB::commit();
@@ -213,7 +212,6 @@ class SubmissionController extends Controller
                     'message' => "Success! Your submission was rewarded with {$points} points.",
                     'type' => 'reward_earned',
                     'submission_id' => $submission->id,
-                    'is_read' => false,
                 ]);
 
                 return response()->json([
@@ -262,7 +260,6 @@ class SubmissionController extends Controller
                     'message' => "Resolved! Initial confidence low, but alternative engine confirmed your submission. You earned {$points} points.",
                     'type' => 'reward_earned',
                     'submission_id' => $submission->id,
-                    'is_read' => false,
                 ]);
 
                 DB::commit();
@@ -303,7 +300,6 @@ class SubmissionController extends Controller
                 'message' => "Your submission is under review by a moderator.",
                 'type' => 'submission_pending',
                 'submission_id' => $submission->id,
-                'is_read' => false,
             ]);
 
             DB::commit();

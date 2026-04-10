@@ -86,7 +86,6 @@ class RewardController extends Controller
                 'user_id' => $user->id,
                 'message' => "You successfully redeemed {$cost} points for: {$request->reward_name}",
                 'type' => 'points_redeemed',
-                'is_read' => false,
             ]);
 
             DB::commit();

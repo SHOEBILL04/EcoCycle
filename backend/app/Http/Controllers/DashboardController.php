@@ -188,7 +188,6 @@ class DashboardController extends Controller
                 'user_id' => $user->id,
                 'message' => "Daily Challenge Complete! You earned a {$challengeBonus} point bonus for classifying 3 e-waste items.",
                 'type' => 'reward_earned',
-                'is_read' => false,
             ]);
 
             $user->increment('total_points', $challengeBonus);
