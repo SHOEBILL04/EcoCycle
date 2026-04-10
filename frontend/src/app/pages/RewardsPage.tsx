@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Gift,
   Leaf,
@@ -18,143 +18,43 @@ import { motion } from "motion/react";
 
 type RewardCategory = "all" | "vouchers" | "eco" | "transport" | "experiences";
 
-const rewards = [
-  {
-    id: 1,
-    title: "$10 Grocery Voucher",
-    partner: "GreenMart",
-    points: 500,
-    category: "vouchers" as const,
-    icon: ShoppingBag,
-    color: "from-emerald-400 to-green-500",
-    bg: "bg-emerald-50",
-    popular: true,
-    remaining: 48,
-    description: "Redeemable at any GreenMart location nationwide",
-  },
-  {
-    id: 2,
-    title: "Free Coffee",
-    partner: "EcoBrew Café",
-    points: 150,
-    category: "experiences" as const,
-    icon: Coffee,
-    color: "from-amber-400 to-orange-500",
-    bg: "bg-amber-50",
-    popular: false,
-    remaining: 200,
-    description: "One free coffee or tea at any EcoBrew Café",
-  },
-  {
-    id: 3,
-    title: "Monthly Bus Pass",
-    partner: "City Transit",
-    points: 1200,
-    category: "transport" as const,
-    icon: Bus,
-    color: "from-blue-400 to-blue-600",
-    bg: "bg-blue-50",
-    popular: true,
-    remaining: 15,
-    description: "Free unlimited rides on all city buses for 30 days",
-  },
-  {
-    id: 4,
-    title: "Plant a Tree",
-    partner: "ReforeStation.org",
-    points: 300,
-    category: "eco" as const,
-    icon: TreePine,
-    color: "from-green-500 to-emerald-600",
-    bg: "bg-green-50",
-    popular: false,
-    remaining: 999,
-    description: "We'll plant a tree in your name in a reforestation project",
-  },
-  {
-    id: 5,
-    title: "$25 EcoStore Credit",
-    partner: "EcoStore Online",
-    points: 1000,
-    category: "vouchers" as const,
-    icon: ShoppingBag,
-    color: "from-violet-400 to-purple-600",
-    bg: "bg-violet-50",
-    popular: false,
-    remaining: 30,
-    description: "Shop sustainable products with EcoStore credit",
-  },
-  {
-    id: 6,
-    title: "Museum Pass",
-    partner: "Science & Nature Museum",
-    points: 800,
-    category: "experiences" as const,
-    icon: Star,
-    color: "from-pink-400 to-rose-500",
-    bg: "bg-pink-50",
-    popular: false,
-    remaining: 50,
-    description: "Free entry to the Science & Nature Museum for one adult",
-  },
-  {
-    id: 7,
-    title: "5 Trees Planted",
-    partner: "ReforeStation.org",
-    points: 1400,
-    category: "eco" as const,
-    icon: TreePine,
-    color: "from-teal-400 to-emerald-600",
-    bg: "bg-teal-50",
-    popular: true,
-    remaining: 999,
-    description: "Plant a grove of 5 trees in your name",
-  },
-  {
-    id: 8,
-    title: "10-Ride Bike Share",
-    partner: "GreenBike",
-    points: 400,
-    category: "transport" as const,
-    icon: Bus,
-    color: "from-cyan-400 to-blue-500",
-    bg: "bg-cyan-50",
-    popular: false,
-    remaining: 100,
-    description: "10 free rides on the city bike share network",
-  },
-];
-
-const redemptionHistory = [
-  {
-    reward: "$10 Grocery Voucher",
-    partner: "GreenMart",
-    points: 500,
-    date: "Apr 8, 2026",
-    status: "redeemed",
-  },
-  {
-    reward: "Plant a Tree",
-    partner: "ReforeStation.org",
-    points: 300,
-    date: "Mar 22, 2026",
-    status: "redeemed",
-  },
-  {
-    reward: "Free Coffee",
-    partner: "EcoBrew Café",
-    points: 150,
-    date: "Mar 15, 2026",
-    status: "expired",
-  },
-];
+const iconMap: Record<string, any> = {
+  ShoppingBag,
+  Coffee,
+  Bus,
+  TreePine,
+  Star,
+};
 
 export function RewardsPage() {
   const [activeCategory, setActiveCategory] = useState<RewardCategory>("all");
   const [redeemed, setRedeemed] = useState<Set<number>>(new Set());
   const [confirming, setConfirming] = useState<number | null>(null);
 
-  const userPoints = 2840;
+  const [rewards, setRewards] = useState<any[]>([]);
+  const [redemptionHistory, setRedemptionHistory] = useState<any[]>([]);
+  const [userPoints, setUserPoints] = useState(0);
+  const [totalEarned, setTotalEarned] = useState(0);
+  const [totalRedeemed, setTotalRedeemed] = useState(0);
+  const [redemptionsCount, setRedemptionsCount] = useState(0);
+  const [joined, setJoined] = useState('recently');
+
+  useEffect(() => {
+    fetch('http://localhost:8000/api/rewards', {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('access_token')}` }
+    })
+    .then(res => res.json())
+    .then(data => {
+        setRewards(data.rewards || []);
+        setRedemptionHistory(data.redemptionHistory || []);
+        setUserPoints(data.userPoints || 0);
+        setTotalEarned(data.totalEarned || 0);
+        setTotalRedeemed(data.totalRedeemed || 0);
+        setRedemptionsCount(data.redemptionsCount || 0);
+        setJoined(data.joined || 'recently');
+    })
+    .catch(console.error);
+  }, []);
 
   const categories: { id: RewardCategory; label: string; emoji: string }[] = [
     { id: "all", label: "All Rewards", emoji: "🎁" },
@@ -169,14 +69,37 @@ export function RewardsPage() {
       ? rewards
       : rewards.filter((r) => r.category === activeCategory);
 
-  const handleRedeem = (id: number) => {
+  const handleRedeem = (id: number, cost: number, title: string) => {
     if (confirming === id) {
-      setRedeemed((prev) => new Set([...prev, id]));
-      setConfirming(null);
+      fetch('http://localhost:8000/api/redeem', {
+         method: 'POST',
+         headers: {
+           'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+           'Content-Type': 'application/json'
+         },
+         body: JSON.stringify({ cost, reward_name: title })
+       }).then(res => res.json()).then(data => {
+           if (data.status === 'success') {
+               setRedeemed((prev) => new Set([...prev, id]));
+               setUserPoints(data.remaining_points);
+               setTotalRedeemed(prev => prev + cost);
+               setRedemptionsCount(prev => prev + 1);
+               setConfirming(null);
+               setRedemptionHistory(prev => [
+                   { reward: title, partner: "EcoCycle Network", points: cost, date: "Just now", status: "redeemed" },
+                   ...prev
+               ]);
+           } else {
+               alert(data.error || "Failed to redeem.");
+           }
+       }).catch(console.error);
     } else {
       setConfirming(id);
     }
   };
+
+  const toNextTier = Math.max(0, 3000 - totalEarned);
+  const tierProgress = Math.min(100, (totalEarned / 3000) * 100);
 
   return (
     <div className="p-4 lg:p-6 max-w-6xl mx-auto">
@@ -204,17 +127,17 @@ export function RewardsPage() {
             <p className="text-5xl font-black text-white">
               {userPoints.toLocaleString()}
             </p>
-            <p className="text-emerald-200 text-xs mt-1">+480 earned today</p>
+            <p className="text-emerald-200 text-xs mt-1">Ready to use</p>
           </div>
           <div className="sm:border-l sm:border-white/20 sm:pl-6">
             <p className="text-emerald-200 text-sm mb-1">Total Earned (All Time)</p>
-            <p className="text-2xl font-bold text-white">6,420</p>
-            <p className="text-emerald-200 text-xs mt-1">Since Feb 2024</p>
+            <p className="text-2xl font-bold text-white">{totalEarned.toLocaleString()}</p>
+            <p className="text-emerald-200 text-xs mt-1">Since {joined}</p>
           </div>
           <div className="sm:border-l sm:border-white/20 sm:pl-6">
             <p className="text-emerald-200 text-sm mb-1">Points Redeemed</p>
-            <p className="text-2xl font-bold text-white">950</p>
-            <p className="text-emerald-200 text-xs mt-1">3 redemptions</p>
+            <p className="text-2xl font-bold text-white">{totalRedeemed.toLocaleString()}</p>
+            <p className="text-emerald-200 text-xs mt-1">{redemptionsCount} redemptions</p>
           </div>
         </div>
 
@@ -222,18 +145,18 @@ export function RewardsPage() {
         <div className="mt-5 pt-4 border-t border-white/20">
           <div className="flex justify-between text-xs text-emerald-200 mb-1.5">
             <span className="flex items-center gap-1">
-              <Sparkles className="w-3 h-3" /> Gold Tier
+              <Sparkles className="w-3 h-3" /> Base Tier
             </span>
-            <span>3,000 pts needed for Platinum</span>
+            <span>3,000 pts needed for Gold</span>
           </div>
           <div className="h-2 bg-white/20 rounded-full overflow-hidden">
             <div
               className="h-full bg-gradient-to-r from-yellow-400 to-amber-300 rounded-full"
-              style={{ width: "56.8%" }}
+              style={{ width: `${tierProgress}%` }}
             ></div>
           </div>
           <p className="text-xs text-emerald-200 mt-1">
-            160 more points until Platinum Tier 🏆
+            {toNextTier > 0 ? `${toNextTier} more points until Gold Tier 🏆` : 'You reached Gold Tier! 🏆'}
           </p>
         </div>
       </div>
@@ -241,9 +164,9 @@ export function RewardsPage() {
       {/* Stats row */}
       <div className="grid grid-cols-3 gap-4 mb-6">
         {[
-          { label: "Points to Redeem", val: "2,840", icon: Leaf, color: "text-emerald-600" },
+          { label: "Points to Redeem", val: userPoints.toLocaleString(), icon: Leaf, color: "text-emerald-600" },
           { label: "Rewards Available", val: rewards.length.toString(), icon: Gift, color: "text-purple-600" },
-          { label: "Items Redeemed", val: "3", icon: Package, color: "text-blue-600" },
+          { label: "Items Redeemed", val: redemptionsCount.toString(), icon: Package, color: "text-blue-600" },
         ].map((s, i) => (
           <div
             key={i}
@@ -282,6 +205,7 @@ export function RewardsPage() {
           const canAfford = userPoints >= reward.points;
           const isRedeemed = redeemed.has(reward.id);
           const isConfirming = confirming === reward.id;
+          const Icon = iconMap[reward.icon] || Gift;
 
           return (
             <motion.div
@@ -291,7 +215,6 @@ export function RewardsPage() {
               transition={{ delay: i * 0.05 }}
               className={`bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden ${!canAfford ? "opacity-60" : ""}`}
             >
-              {/* Card header */}
               <div
                 className={`bg-gradient-to-br ${reward.color} p-5 relative`}
               >
@@ -300,16 +223,15 @@ export function RewardsPage() {
                     ⭐ Popular
                   </span>
                 )}
-                <reward.icon className="w-8 h-8 text-white mb-2" />
+                <Icon className="w-8 h-8 text-white mb-2" />
                 <h3 className="font-bold text-white text-sm leading-tight">
                   {reward.title}
                 </h3>
                 <p className="text-white/80 text-xs mt-0.5">{reward.partner}</p>
               </div>
 
-              {/* Card body */}
               <div className="p-4">
-                <p className="text-xs text-gray-500 mb-3 leading-relaxed">
+                <p className="text-xs text-gray-500 mb-3 leading-relaxed min-h-[36px]">
                   {reward.description}
                 </p>
 
@@ -333,7 +255,7 @@ export function RewardsPage() {
                   </div>
                 ) : (
                   <button
-                    onClick={() => canAfford && handleRedeem(reward.id)}
+                    onClick={() => canAfford && handleRedeem(reward.id, reward.points, reward.title)}
                     disabled={!canAfford}
                     className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all ${
                       !canAfford
@@ -344,9 +266,9 @@ export function RewardsPage() {
                     }`}
                   >
                     {!canAfford ? (
-                      <>Need {(reward.points - userPoints).toLocaleString()} more pts</>
+                      <>Need {(reward.points - userPoints).toLocaleString()} pts</>
                     ) : isConfirming ? (
-                      <>Confirm Redemption?</>
+                      <>Confirm?</>
                     ) : (
                       <>
                         Redeem
@@ -359,6 +281,11 @@ export function RewardsPage() {
             </motion.div>
           );
         })}
+        {filtered.length === 0 && (
+          <div className="col-span-full text-center py-12 text-gray-400">
+            No rewards in this category yet.
+          </div>
+        )}
       </div>
 
       {/* Redemption history */}
@@ -368,38 +295,44 @@ export function RewardsPage() {
           <Clock className="w-4 h-4 text-gray-400" />
         </div>
         <div className="divide-y divide-gray-50">
-          {redemptionHistory.map((item, i) => (
-            <div
-              key={i}
-              className="flex items-center gap-4 p-4 hover:bg-gray-50 transition-colors"
-            >
-              <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center flex-shrink-0">
-                <Gift className="w-5 h-5 text-emerald-600" />
-              </div>
-              <div className="flex-1">
-                <p className="text-sm font-semibold text-gray-900">
-                  {item.reward}
-                </p>
-                <p className="text-xs text-gray-400">
-                  {item.partner} · {item.date}
-                </p>
-              </div>
-              <div className="text-right flex-shrink-0">
-                <p className="text-sm font-bold text-red-400">
-                  -{item.points} pts
-                </p>
-                <span
-                  className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                    item.status === "redeemed"
-                      ? "bg-emerald-100 text-emerald-700"
-                      : "bg-gray-100 text-gray-500"
-                  }`}
-                >
-                  {item.status}
-                </span>
-              </div>
+          {redemptionHistory.length === 0 ? (
+            <div className="p-8 text-center text-gray-400 text-sm">
+                No redemptions found.
             </div>
-          ))}
+          ) : (
+              redemptionHistory.map((item, i) => (
+                <div
+                  key={i}
+                  className="flex items-center gap-4 p-4 hover:bg-gray-50 transition-colors"
+                >
+                  <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                    <Gift className="w-5 h-5 text-emerald-600" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold text-gray-900">
+                      {item.reward}
+                    </p>
+                    <p className="text-xs text-gray-400">
+                      {item.partner} · {item.date}
+                    </p>
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <p className="text-sm font-bold text-red-400">
+                      -{item.points} pts
+                    </p>
+                    <span
+                      className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                        item.status === "redeemed"
+                          ? "bg-emerald-100 text-emerald-700"
+                          : "bg-gray-100 text-gray-500"
+                      }`}
+                    >
+                      {item.status}
+                    </span>
+                  </div>
+                </div>
+              ))
+          )}
         </div>
       </div>
     </div>

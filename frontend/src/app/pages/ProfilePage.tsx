@@ -30,87 +30,7 @@ import {
   CartesianGrid,
 } from "recharts";
 
-const isOwnProfile = false; // Toggle to simulate own vs others' profile
-
-const radarData = [
-  { subject: "Accuracy", A: 91 },
-  { subject: "Volume", A: 78 },
-  { subject: "E-Waste", A: 65 },
-  { subject: "Organic", A: 88 },
-  { subject: "Recyclable", A: 94 },
-  { subject: "Hazardous", A: 72 },
-];
-
-const activityData = [
-  { month: "Nov", points: 340 },
-  { month: "Dec", points: 580 },
-  { month: "Jan", points: 420 },
-  { month: "Feb", points: 720 },
-  { month: "Mar", points: 890 },
-  { month: "Apr", points: 960 },
-];
-
-const badges = [
-  { emoji: "🌱", label: "First Submit", desc: "Made your first submission" },
-  { emoji: "🔥", label: "7-Day Streak", desc: "7 consecutive days active" },
-  { emoji: "♻️", label: "Recycling Pro", desc: "100+ recyclable items" },
-  { emoji: "💯", label: "Perfect Week", desc: "100% accuracy in a week" },
-  { emoji: "⚡", label: "Speed Runner", desc: "10 submissions in one day" },
-  { emoji: "🎯", label: "Sharpshooter", desc: "50 high-confidence submissions" },
-];
-
-const recentActivity = [
-  {
-    emoji: "♻️",
-    item: "PET Plastic Bottle",
-    cat: "Recyclable",
-    catColor: "blue",
-    conf: 0.94,
-    pts: 15,
-    ok: true,
-    time: "2h ago",
-  },
-  {
-    emoji: "🌱",
-    item: "Banana Peel",
-    cat: "Organic",
-    catColor: "green",
-    conf: 0.97,
-    pts: 10,
-    ok: true,
-    time: "5h ago",
-  },
-  {
-    emoji: "💻",
-    item: "Old Smartphone",
-    cat: "E-Waste",
-    catColor: "purple",
-    conf: 0.61,
-    pts: 0,
-    ok: false,
-    time: "8h ago",
-  },
-  {
-    emoji: "⚠️",
-    item: "Paint Can",
-    cat: "Hazardous",
-    catColor: "red",
-    conf: 0.88,
-    pts: 20,
-    ok: true,
-    time: "1d ago",
-  },
-  {
-    emoji: "♻️",
-    item: "Cardboard Box",
-    cat: "Recyclable",
-    catColor: "blue",
-    conf: 0.99,
-    pts: 12,
-    ok: true,
-    time: "1d ago",
-  },
-];
+const isOwnProfile = true;
 
 const catColorMap: Record<string, string> = {
   blue: "bg-blue-100 text-blue-700",
@@ -129,6 +49,10 @@ export function ProfilePage() {
   const [submissions, setSubmissions] = useState<any[]>([]);
 
   const [myClanData, setMyClanData] = useState<any[]>([]);
+
+  const [radarData, setRadarData] = useState<any[]>([]);
+  const [activityData, setActivityData] = useState<any[]>([]);
+  const [badges, setBadges] = useState<any[]>([]);
 
   useEffect(() => {
     fetch('http://localhost:8000/api/user', {
@@ -154,6 +78,17 @@ export function ProfilePage() {
     .then(res => res.json())
     .then(data => {
         setMyClanData(data.my_clan || []);
+    })
+    .catch(console.error);
+
+    fetch('http://localhost:8000/api/profile/stats', {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('access_token')}` }
+    })
+    .then(res => res.json())
+    .then(data => {
+        setRadarData(data.radarData || []);
+        setActivityData(data.activityData || []);
+        setBadges(data.badges || []);
     })
     .catch(console.error);
   }, []);
