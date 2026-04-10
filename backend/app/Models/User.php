@@ -23,6 +23,8 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'country',
+        'district',
         'clan_id',
         'total_points',
         'user_title',
