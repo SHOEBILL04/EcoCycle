@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   ShieldCheck,
   AlertTriangle,
@@ -19,6 +19,22 @@ import { motion, AnimatePresence } from "motion/react";
 
 type DisputeStatus = "pending" | "reviewing" | "resolved" | "escalated";
 type FilterStatus = "all" | DisputeStatus;
+
+interface Dispute {
+  id: string;
+  submissionId: string;
+  item: string;
+  user: string;
+  userAvatar: string;
+  time: string;
+  status: DisputeStatus;
+  modelA: { name: string; confidence: number; category: string };
+  modelB: { name: string; confidence: number; category: string };
+  imageThumb: string;
+  notes: string;
+  resolution?: string;
+  resolvedBy?: string;
+}
 
 const disputes = [
   {
@@ -118,30 +134,54 @@ const statusConfig = {
 export function ModeratorPage() {
   const [filter, setFilter] = useState<FilterStatus>("all");
   const [search, setSearch] = useState("");
-  const [selectedDispute, setSelectedDispute] = useState<(typeof disputes)[0] | null>(null);
+  const [selectedDispute, setSelectedDispute] = useState<Dispute | null>(null);
   const [resolution, setResolution] = useState("");
   const [note, setNote] = useState("");
+  const [liveDisputes, setLiveDisputes] = useState<Dispute[]>([]);
 
-  const stats = [
-    { label: "Pending Review", val: disputes.filter(d => d.status === "pending").length, color: "text-amber-600", bg: "bg-amber-50", icon: Clock },
-    { label: "In Review", val: disputes.filter(d => d.status === "reviewing").length, color: "text-blue-600", bg: "bg-blue-50", icon: Eye },
-    { label: "Resolved Today", val: 8, color: "text-emerald-600", bg: "bg-emerald-50", icon: CheckCircle },
-    { label: "Escalated", val: disputes.filter(d => d.status === "escalated").length, color: "text-red-600", bg: "bg-red-50", icon: Flag },
-  ];
+  useEffect(() => {
+    fetch('http://localhost:8000/api/moderator/disputes', {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('access_token')}` }
+    })
+    .then(res => res.json())
+    .then(data => setLiveDisputes(data.disputes || []))
+    .catch(console.error);
+  }, []);
 
-  const filtered = disputes.filter((d) => {
-    const matchFilter = filter === "all" || d.status === filter;
-    const matchSearch =
-      !search ||
-      d.id.toLowerCase().includes(search.toLowerCase()) ||
-      d.item.toLowerCase().includes(search.toLowerCase()) ||
-      d.user.toLowerCase().includes(search.toLowerCase());
-    return matchFilter && matchSearch;
+  const handleResolve = async (id: string, status: string, points: number = 0) => {
+    try {
+        const res = await fetch(`http://localhost:8000/api/moderator/resolve/${id}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+            },
+            body: JSON.stringify({ resolution: status, points })
+        });
+        if (res.ok) {
+            setLiveDisputes(prev => prev.filter(d => d.id !== id));
+            setSelectedDispute(null);
+            alert('Resolved successfully!');
+        } else {
+            alert('Resolution failed.');
+        }
+    } catch(err) { console.error(err); }
+  };
+
+  const filtered = liveDisputes.filter((d) => {
+    const matchFilter = filter === "all" || d.status.toLowerCase() === filter.toLowerCase();
+    return matchFilter;
   });
 
   const confidenceColor = (c: number) =>
     c >= 0.75 ? "text-emerald-600" : c >= 0.5 ? "text-amber-600" : "text-red-600";
 
+  const stats = [
+    { label: "Pending Review", val: liveDisputes.length, color: "text-amber-600", bg: "bg-amber-50", icon: Clock },
+    { label: "In Review", val: 0, color: "text-blue-600", bg: "bg-blue-50", icon: Eye },
+    { label: "Resolved Today", val: 0, color: "text-emerald-600", bg: "bg-emerald-50", icon: CheckCircle },
+    { label: "Escalated", val: 0, color: "text-red-600", bg: "bg-red-50", icon: Flag },
+  ];
   return (
     <div className="p-4 lg:p-6 max-w-7xl mx-auto">
       {/* Header */}
