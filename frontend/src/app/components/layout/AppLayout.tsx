@@ -8,9 +8,8 @@ import {
   User,
   Gift,
   Settings,
-  ShieldCheck,
-  Crown,
-  ScrollText,
+
+
   LogOut,
   Leaf,
   Menu,
@@ -30,14 +29,7 @@ const navItems = [
   { label: "Settings", icon: Settings, path: "/app/settings" },
 ];
 
-const modItems = [
-  { label: "Moderator", icon: ShieldCheck, path: "/app/moderator" },
-];
 
-const adminItems = [
-  { label: "Admin Panel", icon: Crown, path: "/app/admin" },
-  { label: "Audit Trail", icon: ScrollText, path: "/app/audit" },
-];
 
 // User roles for type safety
 type UserRole = "Citizen" | "Moderator" | "Administrator";
@@ -119,35 +111,7 @@ export function AppLayout() {
           <NavLink key={item.path} item={item} />
         ))}
 
-        {(currentRole === "Moderator" || currentRole === "Administrator") && (
-          <>
-            <div className="pt-3 pb-1">
-              <p
-                className={`text-emerald-500/50 text-xs font-semibold uppercase tracking-wider px-3 mb-2 ${!sidebarOpen && !mobileSidebarOpen ? "hidden" : ""}`}
-              >
-                Moderation
-              </p>
-              {modItems.map((item) => (
-                <NavLink key={item.path} item={item} />
-              ))}
-            </div>
-          </>
-        )}
 
-        {currentRole === "Administrator" && (
-          <>
-            <div className="pt-3 pb-1">
-              <p
-                className={`text-emerald-500/50 text-xs font-semibold uppercase tracking-wider px-3 mb-2 ${!sidebarOpen && !mobileSidebarOpen ? "hidden" : ""}`}
-              >
-                Administration
-              </p>
-              {adminItems.map((item) => (
-                <NavLink key={item.path} item={item} />
-              ))}
-            </div>
-          </>
-        )}
       </nav>
 
       {/* User section */}
@@ -318,8 +282,8 @@ export function AppLayout() {
                   <button
                     onClick={() => {
                         setProfileOpen(false);
-                        localStorage.removeItem('access_token');
-                        navigate('/login');
+                        localStorage.clear();
+                        navigate('/');
                     }}
                     className="flex w-full items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors font-medium"
                   >

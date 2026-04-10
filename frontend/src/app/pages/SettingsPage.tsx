@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   User,
   Lock,
@@ -47,15 +47,47 @@ export function SettingsPage() {
   const [activeTab, setActiveTab] = useState<Tab>("profile");
   const [saved, setSaved] = useState(false);
   const [showPass, setShowPass] = useState(false);
+  const [passForm, setPassForm] = useState({ current: "", new: "", confirm: "" });
+  const [passLoading, setPassLoading] = useState(false);
+  const [passError, setPassError] = useState("");
+  const [passSuccess, setPassSuccess] = useState(false);
 
   const [profile, setProfile] = useState({
-    name: "Alex Johnson",
-    username: "alexj",
-    email: "alex.johnson@example.com",
+    name: "",
+    username: "",
+    email: "",
     bio: "Passionate eco-warrior reducing urban waste one item at a time 🌿",
-    location: "San Francisco, CA",
-    website: "https://eco.blog",
+    location: "Global Citizen",
+    website: "",
   });
+
+  useEffect(() => {
+    fetch('http://localhost:8000/api/user', {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('access_token')}` }
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.id) {
+            setProfile({
+                name: data.name || "",
+                username: data.email ? data.email.split('@')[0] : "",
+                email: data.email || "",
+                bio: data.bio || "Passionate eco-warrior reducing urban waste one item at a time 🌿",
+                location: data.location || "Global Citizen",
+                website: data.website || "",
+            });
+            if (data.settings) {
+                if (data.settings.privacy) {
+                    setPrivacy(prev => ({ ...prev, ...data.settings.privacy }));
+                }
+                if (data.settings.notifications) {
+                    setNotifs(prev => ({ ...prev, ...data.settings.notifications }));
+                }
+            }
+        }
+    })
+    .catch(console.error);
+  }, []);
 
   const [privacy, setPrivacy] = useState({
     profilePublic: true,
@@ -77,9 +109,66 @@ export function SettingsPage() {
     pushNotifs: false,
   });
 
-  const handleSave = () => {
-    setSaved(true);
-    setTimeout(() => setSaved(false), 3000);
+  const handleProfileSave = async () => {
+    try {
+        const res = await fetch('http://localhost:8000/api/user/profile', {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+            },
+            body: JSON.stringify({
+                name: profile.name,
+                bio: profile.bio,
+                location: profile.location,
+                website: profile.website
+            })
+        });
+        if (res.ok) {
+            setSaved(true);
+            setTimeout(() => setSaved(false), 3000);
+        }
+    } catch (error) {
+        console.error("Failed to save profile:", error);
+    }
+  };
+
+  const handlePrivacySave = async () => {
+    try {
+        const res = await fetch('http://localhost:8000/api/user/settings', {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+            },
+            body: JSON.stringify({ privacy })
+        });
+        if (res.ok) {
+            setSaved(true);
+            setTimeout(() => setSaved(false), 3000);
+        }
+    } catch (error) {
+        console.error("Failed to save privacy settings:", error);
+    }
+  };
+
+  const handleNotifSave = async () => {
+    try {
+        const res = await fetch('http://localhost:8000/api/user/settings', {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+            },
+            body: JSON.stringify({ notifications: notifs })
+        });
+        if (res.ok) {
+            setSaved(true);
+            setTimeout(() => setSaved(false), 3000);
+        }
+    } catch (error) {
+        console.error("Failed to save notifications:", error);
+    }
   };
 
   const togglePrivacy = (key: keyof typeof privacy) => {
@@ -88,6 +177,47 @@ export function SettingsPage() {
 
   const toggleNotif = (key: keyof typeof notifs) => {
     setNotifs((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const handlePasswordChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPassError("");
+    setPassSuccess(false);
+    
+    if (passForm.new !== passForm.confirm) {
+        setPassError("New passwords do not match.");
+        return;
+    }
+
+    setPassLoading(true);
+
+    try {
+      const res = await fetch("http://localhost:8000/api/user/password", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+        },
+        body: JSON.stringify({
+          current_password: passForm.current,
+          new_password: passForm.new,
+          new_password_confirmation: passForm.confirm,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setPassError(data.message || "Failed to update password");
+      } else {
+        setPassSuccess(true);
+        setPassForm({ current: "", new: "", confirm: "" });
+        setTimeout(() => setPassSuccess(false), 3000);
+      }
+    } catch (err: any) {
+      setPassError(err.message || "An error occurred");
+    } finally {
+      setPassLoading(false);
+    }
   };
 
   return (
@@ -143,7 +273,7 @@ export function SettingsPage() {
               <div className="flex items-center gap-4">
                 <div className="relative">
                   <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-emerald-400 to-green-600 flex items-center justify-center text-white font-black text-2xl">
-                    AJ
+                    {profile.name ? profile.name.slice(0, 2).toUpperCase() : 'U'}
                   </div>
                   <button className="absolute -bottom-1 -right-1 w-7 h-7 bg-emerald-500 rounded-full flex items-center justify-center text-white shadow-lg hover:bg-emerald-600 transition-colors">
                     <Camera className="w-3.5 h-3.5" />
@@ -252,7 +382,7 @@ export function SettingsPage() {
               </div>
 
               <button
-                onClick={handleSave}
+                onClick={handleProfileSave}
                 className="flex items-center gap-2 bg-gradient-to-r from-emerald-500 to-green-600 text-white font-semibold px-6 py-2.5 rounded-xl hover:from-emerald-600 hover:to-green-700 transition-all shadow-lg shadow-emerald-500/25 text-sm"
               >
                 <Save className="w-4 h-4" />
@@ -340,7 +470,7 @@ export function SettingsPage() {
               </div>
 
               <button
-                onClick={handleSave}
+                onClick={handlePrivacySave}
                 className="flex items-center gap-2 bg-gradient-to-r from-emerald-500 to-green-600 text-white font-semibold px-6 py-2.5 rounded-xl hover:from-emerald-600 hover:to-green-700 transition-all shadow-lg shadow-emerald-500/25 text-sm"
               >
                 <Save className="w-4 h-4" />
@@ -354,11 +484,21 @@ export function SettingsPage() {
             <div className="space-y-4">
               <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
                 <h2 className="font-bold text-gray-900 mb-5">Change Password</h2>
-                <div className="space-y-4">
+                {passError && (
+                    <div className="mb-4 bg-red-50 text-red-600 text-sm p-3 rounded-lg border border-red-100">
+                        {passError}
+                    </div>
+                )}
+                {passSuccess && (
+                    <div className="mb-4 bg-emerald-50 text-emerald-600 text-sm p-3 rounded-lg border border-emerald-100 flex items-center gap-2">
+                        <CheckCircle className="w-4 h-4" /> Password updated successfully!
+                    </div>
+                )}
+                <form className="space-y-4" onSubmit={handlePasswordChange}>
                   {[
-                    { label: "Current Password", placeholder: "Enter current password" },
-                    { label: "New Password", placeholder: "Enter new password" },
-                    { label: "Confirm New Password", placeholder: "Confirm new password" },
+                    { label: "Current Password", placeholder: "Enter current password", key: "current" as const },
+                    { label: "New Password", placeholder: "Enter new password", key: "new"  as const },
+                    { label: "Confirm New Password", placeholder: "Confirm new password", key: "confirm" as const },
                   ].map((field, i) => (
                     <div key={i}>
                       <label className="block text-sm font-medium text-gray-700 mb-1.5">
@@ -368,6 +508,9 @@ export function SettingsPage() {
                         <input
                           type={showPass ? "text" : "password"}
                           placeholder={field.placeholder}
+                          value={passForm[field.key]}
+                          onChange={(e) => setPassForm(p => ({ ...p, [field.key]: e.target.value }))}
+                          required
                           className="w-full border border-gray-200 rounded-xl px-3 py-2.5 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-gray-50"
                         />
                         <button
@@ -384,10 +527,10 @@ export function SettingsPage() {
                       </div>
                     </div>
                   ))}
-                </div>
-                <button className="mt-4 flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white font-semibold px-5 py-2.5 rounded-xl transition-colors text-sm">
-                  Update Password
-                </button>
+                  <button type="submit" disabled={passLoading} className={`mt-4 flex items-center gap-2 ${passLoading ? 'bg-emerald-400' : 'bg-emerald-500 hover:bg-emerald-600'} text-white font-semibold px-5 py-2.5 rounded-xl transition-colors text-sm`}>
+                    {passLoading ? 'Updating...' : 'Update Password'}
+                  </button>
+                </form>
               </div>
 
               <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
@@ -555,7 +698,7 @@ export function SettingsPage() {
               </div>
 
               <button
-                onClick={handleSave}
+                onClick={handleNotifSave}
                 className="flex items-center gap-2 bg-gradient-to-r from-emerald-500 to-green-600 text-white font-semibold px-6 py-2.5 rounded-xl hover:from-emerald-600 hover:to-green-700 transition-all shadow-lg shadow-emerald-500/25 text-sm"
               >
                 <Save className="w-4 h-4" />

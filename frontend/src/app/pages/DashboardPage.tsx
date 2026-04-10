@@ -27,22 +27,7 @@ import {
   Cell,
 } from "recharts";
 
-const pointsData = [
-  { date: "Apr 4", points: 120 },
-  { date: "Apr 5", points: 280 },
-  { date: "Apr 6", points: 195 },
-  { date: "Apr 7", points: 390 },
-  { date: "Apr 8", points: 320 },
-  { date: "Apr 9", points: 480 },
-  { date: "Apr 10", points: 560 },
-];
 
-const categoryData = [
-  { name: "Recyclable", value: 45, color: "#3b82f6" },
-  { name: "Organic", value: 28, color: "#22c55e" },
-  { name: "E-Waste", value: 16, color: "#8b5cf6" },
-  { name: "Hazardous", value: 11, color: "#ef4444" },
-];
 
 const recentSubmissions = [
   {
@@ -103,14 +88,7 @@ const recentSubmissions = [
 ];
 
 
-const badges = [
-  { emoji: "🌱", label: "First Submit", earned: true },
-  { emoji: "🔥", label: "7-Day Streak", earned: true },
-  { emoji: "♻️", label: "Recycling Pro", earned: true },
-  { emoji: "💯", label: "Perfect Week", earned: true },
-  { emoji: "🏆", label: "Top 100", earned: false },
-  { emoji: "⚡", label: "Speed Classifier", earned: false },
-];
+
 
 const categoryColorMap: Record<string, string> = {
   blue: "bg-blue-100 text-blue-700",
@@ -126,6 +104,7 @@ export function DashboardPage() {
   const [submissions, setSubmissions] = useState<any[]>([]);
   const [clanAlerts, setClanAlerts] = useState<any[]>([]);
   const [data, setData] = useState<any>(null);
+  const [clanAlerts, setClanAlerts] = useState<any[]>([]);
 
   useEffect(() => {
     fetch('http://localhost:8000/api/dashboard', {
@@ -134,6 +113,11 @@ export function DashboardPage() {
         }
     })
     .then(res => res.json())
+    .then(payload => {
+        setData(payload);
+        if (payload.clan_alerts) {
+            setClanAlerts(payload.clan_alerts);
+        }
     .then(data => {
         setSubmissions(data.recent_submissions);
         if (data.clan_alerts) {
@@ -220,7 +204,7 @@ export function DashboardPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">
-            Welcome back, {stats.name}! 👋
+            Welcome back, Alex! 👋
           </h1>
           <p className="text-gray-500 text-sm mt-0.5">
             Here's your eco-impact summary for today
@@ -386,48 +370,39 @@ export function DashboardPage() {
             <h2 className="font-bold text-gray-900">Categories</h2>
             <Activity className="w-4 h-4 text-gray-400" />
           </div>
-          
-          {category_data.length > 0 ? (
-            <>
-              <ResponsiveContainer width="100%" height={140}>
-                <PieChart>
-                  <Pie
-                    data={category_data}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={40}
-                    outerRadius={65}
-                    paddingAngle={3}
-                    dataKey="value"
-                  >
-                    {category_data.map((entry: any, index: number) => (
-                      <Cell key={index} fill={entry.color} />
-                    ))}
-                  </Pie>
-                </PieChart>
-              </ResponsiveContainer>
-              <div className="space-y-2 mt-2">
-                {category_data.map((cat: any, i: number) => (
-                  <div key={i} className="flex items-center justify-between text-sm">
-                    <div className="flex items-center gap-2">
-                      <div
-                        className="w-2.5 h-2.5 rounded-full"
-                        style={{ backgroundColor: cat.color }}
-                      ></div>
-                      <span className="text-gray-600 text-xs">{cat.name}</span>
-                    </div>
-                    <span className="text-gray-900 font-semibold text-xs">
-                      {cat.value}%
-                    </span>
-                  </div>
+          <ResponsiveContainer width="100%" height={140}>
+            <PieChart>
+              <Pie
+                data={category_data}
+                cx="50%"
+                cy="50%"
+                innerRadius={40}
+                outerRadius={65}
+                paddingAngle={3}
+                dataKey="value"
+              >
+                {category_data.map((entry: any, index: number) => (
+                  <Cell key={index} fill={entry.color} />
                 ))}
+              </Pie>
+            </PieChart>
+          </ResponsiveContainer>
+          <div className="space-y-2 mt-2">
+            {category_data.map((cat: any, i: number) => (
+              <div key={i} className="flex items-center justify-between text-sm">
+                <div className="flex items-center gap-2">
+                  <div
+                    className="w-2.5 h-2.5 rounded-full"
+                    style={{ backgroundColor: cat.color }}
+                  ></div>
+                  <span className="text-gray-600 text-xs">{cat.name}</span>
+                </div>
+                <span className="text-gray-900 font-semibold text-xs">
+                  {cat.value}%
+                </span>
               </div>
-            </>
-          ) : (
-            <div className="flex items-center justify-center h-[200px] text-gray-400 text-sm">
-               No submissions yet
-            </div>
-          )}
+            ))}
+          </div>
         </div>
       </div>
 
@@ -447,6 +422,43 @@ export function DashboardPage() {
             </Link>
           </div>
           <div className="divide-y divide-gray-50">
+            {recent_submissions && recent_submissions.length > 0 ? recent_submissions.map((sub: any) => {
+                const categoryUpper = sub.category ? sub.category.charAt(0).toUpperCase() + sub.category.slice(1) : 'Unknown';
+                const emoji = sub.category === 'organic' ? '🌱' : sub.category === 'e-waste' ? '💻' : sub.category === 'hazardous' ? '⚠️' : '♻️';
+                const col = sub.category === 'organic' ? 'green' : sub.category === 'e-waste' ? 'purple' : sub.category === 'hazardous' ? 'red' : 'blue';
+                const score = parseFloat(sub.confidence_score) || 0;
+
+                return (
+                  <div
+                    key={sub.id}
+                    className="flex items-center gap-3 p-4 hover:bg-gray-50 transition-colors"
+                  >
+                    <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center text-xl flex-shrink-0">
+                      {sub.emoji || emoji}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <span className="font-semibold text-gray-900 text-sm truncate">
+                          {sub.item || sub.subcategory || categoryUpper}
+                        </span>
+                        <span
+                          className={`text-xs px-2 py-0.5 rounded-full font-medium ${categoryColorMap[sub.color || col]}`}
+                        >
+                          {sub.category || categoryUpper}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-xs text-gray-400">ID #{sub.id}</span>
+                        <div className="flex items-center gap-1">
+                          <div className="h-1 w-16 bg-gray-100 rounded-full overflow-hidden">
+                            <div
+                              className="h-full rounded-full"
+                              style={{
+                                width: `${(sub.confidence || score) * 100}%`,
+                                backgroundColor:
+                                  (sub.confidence || score) >= 0.75 ? "#10b981" : "#f59e0b",
+                              }}
+                            ></div>
             {submissions.length === 0 ? (
               <div className="p-8 text-center text-gray-400">
                   <Camera className="w-10 h-10 mx-auto mb-3 opacity-20" />
@@ -512,8 +524,35 @@ export function DashboardPage() {
                               </span>
                             )}
                           </div>
+                          <span className="text-xs text-gray-400">
+                            {Math.round((sub.confidence || score) * 100)}%
+                          </span>
                         </div>
                       </div>
+                    </div>
+                    <div className="flex items-center gap-3 flex-shrink-0">
+                      <div className="text-right">
+                        {sub.status === "approved" || sub.status === "COMPLETED" ? (
+                          <span className="text-sm font-bold text-emerald-600">
+                            +{sub.points || 0}
+                          </span>
+                        ) : (
+                          <span className="text-xs font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full flex items-center gap-1">
+                            <AlertTriangle className="w-3 h-3" />
+                            {sub.status === 'dispute' ? 'Dispute' : 'Review'}
+                          </span>
+                        )}
+                        <div className="text-xs text-gray-400 mt-0.5">{sub.time || 'recent'}</div>
+                      </div>
+                    </div>
+                  </div>
+                );
+            }) : (
+              <div className="p-8 text-center text-gray-400">
+                  <Camera className="w-10 h-10 mx-auto mb-3 opacity-20" />
+                  <p className="text-sm">No submissions yet.</p>
+                  <p className="text-xs mt-1">Classify your first image to get started!</p>
+              </div>
                     );
                 })
             )}
@@ -528,7 +567,7 @@ export function DashboardPage() {
               <h2 className="font-bold text-gray-900">Badges</h2>
               <Star className="w-4 h-4 text-amber-400" />
             </div>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-3 gap-2">
               {badges.map((badge: any, i: number) => (
                 <div
                   key={i}
@@ -552,11 +591,11 @@ export function DashboardPage() {
             <h2 className="font-bold mb-4">Overview</h2>
             <div className="space-y-3">
               {[
-                { label: "Submissions", val: stats.classification_count, icon: Camera },
-                { label: "Points Earned", val: stats.total_points, icon: Leaf },
-                { label: "Community Rank", val: stats.community_rank, icon: CheckCircle },
-                { label: "Accuracy", val: stats.accuracy_rate + "%", icon: Flame },
-              ].map((item, i) => (
+                { label: "Submissions", val: "14", icon: Camera },
+                { label: "Points Earned", val: "960", icon: Leaf },
+                { label: "Disputes Won", val: "2", icon: CheckCircle },
+                { label: "Streak Days", val: "12", icon: Flame },
+              ].map((item: any, i: number) => (
                 <div key={i} className="flex items-center justify-between">
                   <div className="flex items-center gap-2 text-emerald-100">
                     <item.icon className="w-3.5 h-3.5" />
@@ -575,7 +614,11 @@ export function DashboardPage() {
               <Trophy className="w-4 h-4 text-amber-400" />
             </div>
             <div className="space-y-2">
-              {leaderboard_nearby.map((u: any, i: number) => (
+              {[
+                { rank: 125, name: "EcoStar", pts: 2910, diff: -70 },
+                { rank: 127, name: "Alex Johnson", pts: 2840, isYou: true },
+                { rank: 128, name: "GreenPath", pts: 2780, diff: +60 },
+              ].map((u: any, i: number) => (
                 <div
                   key={i}
                   className={`flex items-center gap-2 p-2 rounded-xl text-sm ${u.isYou ? "bg-emerald-50 border border-emerald-200" : ""}`}
