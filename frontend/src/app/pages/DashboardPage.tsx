@@ -113,13 +113,6 @@ export function DashboardPage() {
         }
     })
     .then(res => res.json())
-    .then(data => {
-        setData(data);
-        if (data.recent_submissions) {
-            setSubmissions(data.recent_submissions);
-        }
-        if (data.clan_alerts) {
-            setClanAlerts(data.clan_alerts);
     .then(payload => {
         setData(payload);
         if (payload.clan_alerts) {
