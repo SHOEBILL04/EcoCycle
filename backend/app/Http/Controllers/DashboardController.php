@@ -195,25 +195,13 @@ class DashboardController extends Controller
                 'classification_count' => $totalSubmissions,
                 'accuracy_rate' => $accuracyRate,
                 'community_rank' => $rank,
-                'name' => $user->name,
             ],
-<<<<<<< fix/waste_identify_issue
             'recent_submissions' => $recentSubmissions,
             'clan_alerts' => $clanAlerts,
-<<<<<<< HEAD
-            'points_data' => $pointsData,
+            'points_history' => $pointsHistory,
             'category_data' => $categoryData,
             'leaderboard_nearby' => $leaderboardNearby,
             'badges' => $badges,
-=======
-=======
-            'points_history' => $pointsHistory,
-            'category_data' => $categoryData,
-            'recent_submissions' => $recentSubmissions,
-            'leaderboard_nearby' => $nearbyUsers,
-            'badges' => $badges,
->>>>>>> main
->>>>>>> 566b597b4e7391a1b0cd28e1ab131a298e266761
         ]);
     }
 }

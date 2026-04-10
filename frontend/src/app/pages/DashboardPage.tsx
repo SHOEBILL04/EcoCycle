@@ -101,8 +101,7 @@ const categoryColorMap: Record<string, string> = {
 import { useState, useEffect } from "react";
 
 export function DashboardPage() {
-  const [stats, setStats] = useState<any>(null);
-  const [submissions, setSubmissions] = useState<any[]>([]);
+  const [data, setData] = useState<any>(null);
   const [clanAlerts, setClanAlerts] = useState<any[]>([]);
 
   useEffect(() => {
@@ -112,18 +111,11 @@ export function DashboardPage() {
         }
     })
     .then(res => res.json())
-    .then(data => {
-        setStats(data.stats);
-        setSubmissions(data.recent_submissions);
-        setPointsData(data.points_data || []);
-        setCategoryData(data.category_data || []);
-        setLeaderboardNearby(data.leaderboard_nearby || []);
-        setBadgesList(data.badges || []);
-        if (data.clan_alerts) {
-            setClanAlerts(data.clan_alerts);
-        }
     .then(payload => {
         setData(payload);
+        if (payload.clan_alerts) {
+            setClanAlerts(payload.clan_alerts);
+        }
     })
     .catch(console.error);
   }, []);
@@ -373,7 +365,7 @@ export function DashboardPage() {
           <ResponsiveContainer width="100%" height={140}>
             <PieChart>
               <Pie
-                data={categoryData}
+                data={category_data}
                 cx="50%"
                 cy="50%"
                 innerRadius={40}
@@ -381,14 +373,14 @@ export function DashboardPage() {
                 paddingAngle={3}
                 dataKey="value"
               >
-                {categoryData.map((entry, index) => (
+                {category_data.map((entry: any, index: number) => (
                   <Cell key={index} fill={entry.color} />
                 ))}
               </Pie>
             </PieChart>
           </ResponsiveContainer>
           <div className="space-y-2 mt-2">
-            {categoryData.map((cat, i) => (
+            {category_data.map((cat: any, i: number) => (
               <div key={i} className="flex items-center justify-between text-sm">
                 <div className="flex items-center gap-2">
                   <div
@@ -422,136 +414,73 @@ export function DashboardPage() {
             </Link>
           </div>
           <div className="divide-y divide-gray-50">
-<<<<<<< fix/waste_identify_issue
-            {submissions.length === 0 ? (
+            {recent_submissions && recent_submissions.length > 0 ? recent_submissions.map((sub: any) => {
+                const categoryUpper = sub.category ? sub.category.charAt(0).toUpperCase() + sub.category.slice(1) : 'Unknown';
+                const emoji = sub.category === 'organic' ? '🌱' : sub.category === 'e-waste' ? '💻' : sub.category === 'hazardous' ? '⚠️' : '♻️';
+                const col = sub.category === 'organic' ? 'green' : sub.category === 'e-waste' ? 'purple' : sub.category === 'hazardous' ? 'red' : 'blue';
+                const score = parseFloat(sub.confidence_score) || 0;
+
+                return (
+                  <div
+                    key={sub.id}
+                    className="flex items-center gap-3 p-4 hover:bg-gray-50 transition-colors"
+                  >
+                    <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center text-xl flex-shrink-0">
+                      {sub.emoji || emoji}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <span className="font-semibold text-gray-900 text-sm truncate">
+                          {sub.item || sub.subcategory || categoryUpper}
+                        </span>
+                        <span
+                          className={`text-xs px-2 py-0.5 rounded-full font-medium ${categoryColorMap[sub.color || col]}`}
+                        >
+                          {sub.category || categoryUpper}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-xs text-gray-400">ID #{sub.id}</span>
+                        <div className="flex items-center gap-1">
+                          <div className="h-1 w-16 bg-gray-100 rounded-full overflow-hidden">
+                            <div
+                              className="h-full rounded-full"
+                              style={{
+                                width: `${(sub.confidence || score) * 100}%`,
+                                backgroundColor:
+                                  (sub.confidence || score) >= 0.75 ? "#10b981" : "#f59e0b",
+                              }}
+                            ></div>
+                          </div>
+                          <span className="text-xs text-gray-400">
+                            {Math.round((sub.confidence || score) * 100)}%
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 flex-shrink-0">
+                      <div className="text-right">
+                        {sub.status === "approved" || sub.status === "COMPLETED" ? (
+                          <span className="text-sm font-bold text-emerald-600">
+                            +{sub.points || 0}
+                          </span>
+                        ) : (
+                          <span className="text-xs font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full flex items-center gap-1">
+                            <AlertTriangle className="w-3 h-3" />
+                            {sub.status === 'dispute' ? 'Dispute' : 'Review'}
+                          </span>
+                        )}
+                        <div className="text-xs text-gray-400 mt-0.5">{sub.time || 'recent'}</div>
+                      </div>
+                    </div>
+                  </div>
+                );
+            }) : (
               <div className="p-8 text-center text-gray-400">
                   <Camera className="w-10 h-10 mx-auto mb-3 opacity-20" />
                   <p className="text-sm">No submissions yet.</p>
                   <p className="text-xs mt-1">Classify your first image to get started!</p>
               </div>
-            ) : (
-                submissions.map((sub: any) => {
-                    const isDispute = sub.status === 'PENDING' || sub.status === 'FLAGGED';
-                    const categoryUpper = sub.category ? sub.category.charAt(0).toUpperCase() + sub.category.slice(1) : 'Unknown';
-                    const emoji = sub.category === 'organic' ? '🌱' : sub.category === 'e-waste' ? '💻' : sub.category === 'hazardous' ? '⚠️' : '♻️';
-                    const col = sub.category === 'organic' ? 'green' : sub.category === 'e-waste' ? 'purple' : sub.category === 'hazardous' ? 'red' : 'blue';
-                    const score = parseFloat(sub.confidence_score) || 0;
-                    
-                    return (
-                      <div
-                        key={sub.id}
-                        className="flex items-center gap-3 p-4 hover:bg-gray-50 transition-colors"
-                      >
-                        <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center text-xl flex-shrink-0">
-                          {emoji}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-0.5">
-                            <span className="font-semibold text-gray-900 text-sm truncate">
-                              {sub.subcategory || categoryUpper}
-                            </span>
-                            <span
-                              className={`text-xs px-2 py-0.5 rounded-full font-medium ${categoryColorMap[col]}`}
-                            >
-                              {categoryUpper}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-3">
-                            <span className="text-xs text-gray-400">ID #{sub.id}</span>
-                            <div className="flex items-center gap-1">
-                              <div className="h-1 w-16 bg-gray-100 rounded-full overflow-hidden">
-                                <div
-                                  className="h-full rounded-full"
-                                  style={{
-                                    width: `${score * 100}%`,
-                                    backgroundColor:
-                                      score >= 0.75 ? "#10b981" : "#f59e0b",
-                                  }}
-                                ></div>
-                              </div>
-                              <span className="text-xs text-gray-400">
-                                {Math.round(score * 100)}%
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-3 flex-shrink-0">
-                          <div className="text-right">
-                            {!isDispute ? (
-                              <span className="text-sm font-bold text-emerald-600">
-                                Authenticated
-                              </span>
-                            ) : (
-                              <span className="text-xs font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full flex items-center gap-1">
-                                <AlertTriangle className="w-3 h-3" />
-                                Review
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                })
-=======
-            {recent_submissions.length > 0 ? recent_submissions.map((sub: any) => (
-              <div
-                key={sub.id}
-                className="flex items-center gap-3 p-4 hover:bg-gray-50 transition-colors"
-              >
-                <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center text-xl flex-shrink-0">
-                  {sub.emoji}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-0.5">
-                    <span className="font-semibold text-gray-900 text-sm truncate">
-                      {sub.item}
-                    </span>
-                    <span
-                      className={`text-xs px-2 py-0.5 rounded-full font-medium ${categoryColorMap[sub.color]}`}
-                    >
-                      {sub.category}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-xs text-gray-400">{sub.id}</span>
-                    <div className="flex items-center gap-1">
-                      <div className="h-1 w-16 bg-gray-100 rounded-full overflow-hidden">
-                        <div
-                          className="h-full rounded-full"
-                          style={{
-                            width: `${sub.confidence * 100}%`,
-                            backgroundColor:
-                              sub.confidence >= 0.75 ? "#10b981" : "#f59e0b",
-                          }}
-                        ></div>
-                      </div>
-                      <span className="text-xs text-gray-400">
-                        {Math.round(sub.confidence * 100)}%
-                      </span>
-                    </div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3 flex-shrink-0">
-                  <div className="text-right">
-                    {sub.status === "approved" ? (
-                      <span className="text-sm font-bold text-emerald-600">
-                        +{sub.points}
-                      </span>
-                    ) : (
-                      <span className="text-xs font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full flex items-center gap-1">
-                        <AlertTriangle className="w-3 h-3" />
-                        {sub.status === 'dispute' ? 'Dispute' : 'Pending'}
-                      </span>
-                    )}
-                    <div className="text-xs text-gray-400 mt-0.5">{sub.time}</div>
-                  </div>
-                </div>
-              </div>
-            )) : (
-              <div className="p-6 text-center text-sm text-gray-400">
-                 No recent submissions found.
-              </div>
->>>>>>> main
             )}
           </div>
         </div>
@@ -565,7 +494,7 @@ export function DashboardPage() {
               <Star className="w-4 h-4 text-amber-400" />
             </div>
             <div className="grid grid-cols-3 gap-2">
-              {badges.map((badge, i) => (
+              {badges.map((badge: any, i: number) => (
                 <div
                   key={i}
                   className={`flex flex-col items-center gap-1 p-2.5 rounded-xl border text-center ${
@@ -592,7 +521,7 @@ export function DashboardPage() {
                 { label: "Points Earned", val: "960", icon: Leaf },
                 { label: "Disputes Won", val: "2", icon: CheckCircle },
                 { label: "Streak Days", val: "12", icon: Flame },
-              ].map((item, i) => (
+              ].map((item: any, i: number) => (
                 <div key={i} className="flex items-center justify-between">
                   <div className="flex items-center gap-2 text-emerald-100">
                     <item.icon className="w-3.5 h-3.5" />
@@ -615,7 +544,7 @@ export function DashboardPage() {
                 { rank: 125, name: "EcoStar", pts: 2910, diff: -70 },
                 { rank: 127, name: "Alex Johnson", pts: 2840, isYou: true },
                 { rank: 128, name: "GreenPath", pts: 2780, diff: +60 },
-              ].map((u, i) => (
+              ].map((u: any, i: number) => (
                 <div
                   key={i}
                   className={`flex items-center gap-2 p-2 rounded-xl text-sm ${u.isYou ? "bg-emerald-50 border border-emerald-200" : ""}`}

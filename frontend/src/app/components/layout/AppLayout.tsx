@@ -41,11 +41,8 @@ export function AppLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
-<<<<<<< fix/waste_identify_issue
   const [user, setUser] = useState<any>(null);
-=======
   const [profileOpen, setProfileOpen] = useState(false);
->>>>>>> main
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -260,20 +257,13 @@ export function AppLayout() {
             </div>
 
             {/* User avatar */}
-<<<<<<< fix/waste_identify_issue
-            <div className="flex items-center gap-2 cursor-pointer group">
-              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-emerald-400 to-green-600 flex items-center justify-center text-white font-bold text-sm">
-                {user?.name ? user.name.slice(0, 2).toUpperCase() : 'U'}
-              </div>
-              <ChevronDown className="w-4 h-4 text-gray-400 group-hover:text-gray-600 hidden sm:block" />
-=======
             <div className="relative">
               <button 
                 onClick={() => setProfileOpen(!profileOpen)}
                 className="flex items-center gap-2 cursor-pointer group"
               >
                 <div className="w-9 h-9 rounded-full bg-gradient-to-br from-emerald-400 to-green-600 flex items-center justify-center text-white font-bold text-sm">
-                  AJ
+                  {user?.name ? user.name.slice(0, 2).toUpperCase() : 'U'}
                 </div>
                 <ChevronDown className="w-4 h-4 text-gray-400 group-hover:text-gray-600 hidden sm:block" />
               </button>
@@ -292,8 +282,8 @@ export function AppLayout() {
                   <button
                     onClick={() => {
                         setProfileOpen(false);
-                        localStorage.removeItem('access_token');
-                        navigate('/login');
+                        localStorage.clear();
+                        navigate('/');
                     }}
                     className="flex w-full items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors font-medium"
                   >
@@ -302,7 +292,6 @@ export function AppLayout() {
                   </button>
                 </div>
               )}
->>>>>>> main
             </div>
           </div>
         </header>
