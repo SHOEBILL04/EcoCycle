@@ -88,7 +88,6 @@ class ModeratorController extends Controller
                 'message' => "Moderator review complete. Your submission was confirmed as '{$category}'. You earned {$points} points!",
                 'type' => 'dispute_resolved',
                 'submission_id' => $submission->id,
-                'is_read' => false,
             ]);
 
             SystemAudit::create([
