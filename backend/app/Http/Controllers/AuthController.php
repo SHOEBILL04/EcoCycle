@@ -15,12 +15,20 @@ class AuthController extends Controller
             'name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users',
             'password' => 'required|string|min:8|confirmed',
+            'country' => 'required|string|max:255',
+            'district' => 'required|string|max:255',
+            'sub_district' => 'required|string|max:255',
         ]);
+
+        $clan = \App\Models\Clan::firstOrCreate(['name' => $request->sub_district]);
 
         $user = User::create([
             'name' => $request->name,
             'email' => $request->email,
             'password' => Hash::make($request->password),
+            'country' => $request->country,
+            'district' => $request->district,
+            'clan_id' => $clan->id,
             'role' => 'citizen', 
             'is_private' => false,
         ]);
@@ -28,7 +36,7 @@ class AuthController extends Controller
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([
-            'user' => $user,
+            'user' => $user->load('clan'),
             'access_token' => $token,
             'role' => $user->role,
         ], 201);
@@ -52,7 +60,7 @@ class AuthController extends Controller
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([
-            'user' => $user,
+            'user' => $user->load('clan'),
             'access_token' => $token,
             'role' => $user->role,
         ]);
