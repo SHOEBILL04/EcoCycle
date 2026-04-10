@@ -39,8 +39,11 @@ const adminItems = [
   { label: "Audit Trail", icon: ScrollText, path: "/app/audit" },
 ];
 
-// Demo state: current role
-const currentRole = "Administrator"; // "Citizen" | "Moderator" | "Administrator"
+// User roles for type safety
+type UserRole = "Citizen" | "Moderator" | "Administrator";
+
+// Get role from storage, default to Administrator for demo/dev purposes
+const currentRole = (localStorage.getItem("role") || "Administrator") as UserRole;
 
 export function AppLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -150,7 +153,10 @@ export function AppLayout() {
           )}
           {(sidebarOpen || mobileSidebarOpen) && (
             <button
-              onClick={() => navigate("/")}
+              onClick={() => {
+                localStorage.clear();
+                navigate("/");
+              }}
               className="text-emerald-400 hover:text-white transition-colors"
             >
               <LogOut className="w-4 h-4" />
