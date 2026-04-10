@@ -500,7 +500,7 @@ export function LeaderboardPage() {
   useEffect(() => {
     fetch("http://localhost:8000/api/leaderboard", {
       headers: {
-        Authorization: `Bearer ${localStorage.getItem("token")}`,
+        Authorization: `Bearer ${localStorage.getItem("access_token")}`,
       },
     })
       .then((res) => res.json())

@@ -39,16 +39,6 @@ const roleColors: Record<string, string> = {
   admin: "bg-amber-100 text-amber-700",
 };
 
-const submissionsData = [
-  { day: "Mon", approved: 1240, disputed: 89, flagged: 12 },
-  { day: "Tue", approved: 1580, disputed: 102, flagged: 18 },
-  { day: "Wed", approved: 1120, disputed: 78, flagged: 9 },
-  { day: "Thu", approved: 1890, disputed: 134, flagged: 23 },
-  { day: "Fri", approved: 2100, disputed: 156, flagged: 31 },
-  { day: "Sat", approved: 980, disputed: 61, flagged: 8 },
-  { day: "Sun", approved: 1350, disputed: 93, flagged: 14 },
-];
-
 const API = 'http://localhost:8000/api';
 const authHeader = () => ({ 'Authorization': `Bearer ${localStorage.getItem('access_token')}`, 'Content-Type': 'application/json' });
 
@@ -170,7 +160,7 @@ export function AdminPage() {
                 Weekly Submission Volume
               </h2>
               <ResponsiveContainer width="100%" height={220}>
-                <BarChart data={submissionsData}>
+                <BarChart data={systemStats?.weekly_chart || []}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                   <XAxis dataKey="day" tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
                   <YAxis tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false} />

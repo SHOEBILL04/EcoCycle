@@ -121,12 +121,35 @@ class AdminController extends Controller
             ->orderByDesc('total')
             ->get();
 
+        $startDate = \Carbon\Carbon::now()->subDays(6)->startOfDay();
+        $chartDataRaw = DB::table('submissions')
+            ->select(DB::raw('DATE(created_at) as date'), 'status', DB::raw('count(*) as total'))
+            ->where('created_at', '>=', $startDate)
+            ->groupBy('date', 'status')
+            ->get();
+            
+        $weeklyChart = [];
+        for ($i = 0; $i < 7; $i++) {
+            $date = \Carbon\Carbon::now()->subDays(6 - $i)->format('Y-m-d');
+            $dayName = \Carbon\Carbon::now()->subDays(6 - $i)->format('D');
+            
+            $dayStats = $chartDataRaw->where('date', $date);
+            
+            $weeklyChart[] = [
+                'day' => $dayName,
+                'approved' => (int) $dayStats->where('status', 'REWARDED')->sum('total'),
+                'disputed' => (int) $dayStats->where('status', 'PENDING')->sum('total'),
+                'flagged'  => (int) $dayStats->whereIn('status', ['FLAGGED', 'REJECTED'])->sum('total')
+            ];
+        }
+
         return response()->json([
             'submission_breakdown' => $submissionStats,
             'user_role_breakdown'  => $userStats,
             'audit_event_counts'   => $auditEventStats,
-            'total_points_awarded' => DB::table('transactions')->where('type', 'reward')->sum('points'),
-            'total_redeemed'       => DB::table('transactions')->where('type', 'redemption')->sum(DB::raw('ABS(points)')),
+            'total_points_awarded' => clone DB::table('transactions')->where('type', 'reward')->sum('points'),
+            'total_redeemed'       => clone DB::table('transactions')->where('type', 'redemption')->sum(DB::raw('ABS(points)')),
+            'weekly_chart'         => $weeklyChart,
         ]);
     }
 }

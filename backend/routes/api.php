@@ -20,6 +20,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/submit-waste', [\App\Http\Controllers\SubmissionController::class, 'submit']);
     Route::get('/dashboard',    [\App\Http\Controllers\DashboardController::class, 'index']);
     Route::get('/leaderboard',  [\App\Http\Controllers\LeaderboardController::class, 'index']);
+    Route::get('/profile/stats', [\App\Http\Controllers\ProfileController::class, 'stats']);
 
     // Social layer
     Route::post('/follow/{id}',   [\App\Http\Controllers\SocialController::class, 'follow']);
@@ -27,6 +28,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/feed',           [\App\Http\Controllers\SocialController::class, 'feed']);
 
     // Redemption
+    Route::get('/rewards', [\App\Http\Controllers\RewardController::class, 'index']);
     Route::post('/redeem', [\App\Http\Controllers\RewardController::class, 'redeem']);
 
     // ── Moderator & Admin ────────────────────────────────────────────────────

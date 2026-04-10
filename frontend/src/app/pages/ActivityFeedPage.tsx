@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Activity,
   Search,
@@ -13,143 +13,57 @@ import {
   TrendingUp,
 } from "lucide-react";
 
+function timeAgo(dateParam: string | Date): string {
+  const date = typeof dateParam === 'object' ? dateParam : new Date(dateParam);
+  const today = new Date();
+  const seconds = Math.round((today.getTime() - date.getTime()) / 1000);
+  const minutes = Math.round(seconds / 60);
+  const hours = Math.round(minutes / 60);
+  const days = Math.round(hours / 24);
+
+  if (seconds < 60) return "just now";
+  else if (minutes < 60) return `${minutes}m ago`;
+  else if (hours < 24) return `${hours}h ago`;
+  else return `${days}d ago`;
+}
+
 type FeedFilter = "all" | "recyclable" | "organic" | "e-waste" | "hazardous";
-
-const following = [
-  { name: "EcoWarrior99", avatar: "EW", color: "from-gray-400 to-gray-500", active: true },
-  { name: "NatureFirst", avatar: "NF", color: "from-emerald-400 to-emerald-600", active: true },
-  { name: "GreenPath", avatar: "GP", color: "from-lime-400 to-lime-600", active: false },
-  { name: "EcoStar", avatar: "ES", color: "from-teal-400 to-cyan-500", active: false },
-  { name: "CleanEarth", avatar: "CE", color: "from-orange-400 to-orange-600", active: true },
-];
-
-const feedItems = [
-  {
-    id: 1,
-    user: "EcoWarrior99",
-    avatar: "EW",
-    color: "from-gray-400 to-gray-500",
-    time: "3 minutes ago",
-    item: "Aluminum Can",
-    category: "Recyclable",
-    emoji: "♻️",
-    catColor: "blue",
-    catBg: "bg-blue-100",
-    catText: "text-blue-700",
-    confidence: 0.97,
-    points: 12,
-    likes: 8,
-    comments: 2,
-    liked: false,
-    note: "Rinsed and crushed! Always rinse before recycling 🌊",
-  },
-  {
-    id: 2,
-    user: "NatureFirst",
-    avatar: "NF",
-    color: "from-emerald-400 to-emerald-600",
-    time: "12 minutes ago",
-    item: "Coffee Grounds",
-    category: "Organic",
-    emoji: "🌱",
-    catColor: "green",
-    catBg: "bg-green-100",
-    catText: "text-green-700",
-    confidence: 0.99,
-    points: 10,
-    likes: 24,
-    comments: 5,
-    liked: true,
-    note: "Great for composting! Coffee grounds add nitrogen to soil ☕",
-  },
-  {
-    id: 3,
-    user: "GreenPath",
-    avatar: "GP",
-    color: "from-lime-400 to-lime-600",
-    time: "28 minutes ago",
-    item: "AA Batteries",
-    category: "Hazardous",
-    emoji: "⚠️",
-    catColor: "red",
-    catBg: "bg-red-100",
-    catText: "text-red-700",
-    confidence: 0.88,
-    points: 20,
-    likes: 15,
-    comments: 3,
-    liked: false,
-    note: "Dropped these off at the local battery collection point. Never throw in regular bins!",
-  },
-  {
-    id: 4,
-    user: "EcoStar",
-    avatar: "ES",
-    color: "from-teal-400 to-cyan-500",
-    time: "45 minutes ago",
-    item: "Broken Laptop",
-    category: "E-Waste",
-    emoji: "💻",
-    catColor: "purple",
-    catBg: "bg-purple-100",
-    catText: "text-purple-700",
-    confidence: 0.71,
-    points: 0,
-    likes: 6,
-    comments: 1,
-    liked: false,
-    note: "Confidence was low (71%) so this went to dispute review. Fingers crossed! 🤞",
-    disputed: true,
-  },
-  {
-    id: 5,
-    user: "CleanEarth",
-    avatar: "CE",
-    color: "from-orange-400 to-orange-600",
-    time: "1 hour ago",
-    item: "Cardboard Box",
-    category: "Recyclable",
-    emoji: "♻️",
-    catColor: "blue",
-    catBg: "bg-blue-100",
-    catText: "text-blue-700",
-    confidence: 0.99,
-    points: 12,
-    likes: 31,
-    comments: 7,
-    liked: true,
-    note: "Broke down a big moving box! Every cardboard counts 📦",
-  },
-  {
-    id: 6,
-    user: "NatureFirst",
-    avatar: "NF",
-    color: "from-emerald-400 to-emerald-600",
-    time: "2 hours ago",
-    item: "Apple Core",
-    category: "Organic",
-    emoji: "🌱",
-    catColor: "green",
-    catBg: "bg-green-100",
-    catText: "text-green-700",
-    confidence: 0.98,
-    points: 8,
-    likes: 19,
-    comments: 4,
-    liked: false,
-    note: "Quick lunch break submission! Adding to the compost bin 🍎",
-  },
-];
 
 const confidenceColor = (c: number) =>
   c >= 0.75 ? "text-emerald-600" : "text-amber-600";
 const confidenceBg = (c: number) =>
   c >= 0.75 ? "from-emerald-500 to-green-400" : "from-amber-500 to-yellow-400";
 
+const categoryMeta: Record<string, { emoji: string; color: string; bg: string; text: string }> = {
+  recyclable: { emoji: "♻️", color: "bg-blue-500", bg: "bg-blue-100", text: "text-blue-700" },
+  organic: { emoji: "🌱", color: "bg-green-500", bg: "bg-green-100", text: "text-green-700" },
+  'e-waste': { emoji: "💻", color: "bg-purple-500", bg: "bg-purple-100", text: "text-purple-700" },
+  hazardous: { emoji: "⚠️", color: "bg-red-500", bg: "bg-red-100", text: "text-red-700" },
+};
+
 export function ActivityFeedPage() {
   const [filter, setFilter] = useState<FeedFilter>("all");
   const [search, setSearch] = useState("");
   const [likedItems, setLikedItems] = useState<Record<number, boolean>>({});
+
+  const [feedItems, setFeedItems] = useState<any[]>([]);
+  const [following, setFollowing] = useState<any[]>([]);
+  const [stats, setStats] = useState<any[]>([]);
+  const [trending, setTrending] = useState<any[]>([]);
+
+  useEffect(() => {
+    fetch('http://localhost:8000/api/feed', {
+      headers: { 'Authorization': `Bearer ${localStorage.getItem('access_token')}` }
+    })
+    .then(res => res.json())
+    .then(data => {
+      setFeedItems(data.feed || []);
+      setFollowing(data.following || []);
+      setStats(data.stats || []);
+      setTrending(data.trending || []);
+    })
+    .catch(console.error);
+  }, []);
 
   const toggleLike = (id: number) => {
     setLikedItems((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -164,13 +78,12 @@ export function ActivityFeedPage() {
   ];
 
   const filteredFeed = feedItems.filter((item) => {
-    const matchFilter =
-      filter === "all" ||
-      item.category.toLowerCase().replace("-", "-") === filter;
+    const itemCat = item.category ? item.category.toLowerCase().replace("-", "-") : "";
+    const matchFilter = filter === "all" || itemCat === filter;
     const matchSearch =
       !search ||
       item.user.toLowerCase().includes(search.toLowerCase()) ||
-      item.item.toLowerCase().includes(search.toLowerCase());
+      (item.subcategory || "").toLowerCase().includes(search.toLowerCase());
     return matchFilter && matchSearch;
   });
 
@@ -180,7 +93,7 @@ export function ActivityFeedPage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Activity Feed</h1>
           <p className="text-gray-500 text-sm mt-0.5">
-            Recent classifications from people you follow
+            Recent classifications from people you follow and global updates
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -201,11 +114,14 @@ export function ActivityFeedPage() {
               Following ({following.length})
             </h2>
             <div className="space-y-2">
+              {following.length === 0 && (
+                <p className="text-xs text-gray-400">You aren't following anyone yet.</p>
+              )}
               {following.map((user, i) => (
                 <div key={i} className="flex items-center gap-2.5">
                   <div className="relative">
                     <div
-                      className={`w-8 h-8 rounded-full bg-gradient-to-br ${user.color} flex items-center justify-center text-white text-xs font-bold`}
+                      className={`w-8 h-8 rounded-full bg-gradient-to-br ${user.color || 'from-emerald-400 to-green-600'} flex items-center justify-center text-white text-xs font-bold`}
                     >
                       {user.avatar}
                     </div>
@@ -237,20 +153,16 @@ export function ActivityFeedPage() {
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
             <h2 className="font-bold text-gray-900 text-sm mb-3 flex items-center gap-2">
               <TrendingUp className="w-4 h-4 text-blue-500" />
-              Feed Stats (Today)
+              Global Stats (Today)
             </h2>
             <div className="space-y-3">
-              {[
-                { label: "Classifications", val: "47", color: "text-gray-900" },
-                { label: "Total Pts Earned", val: "890", color: "text-emerald-600" },
-                { label: "High Confidence", val: "41", color: "text-emerald-600" },
-                { label: "Disputes", val: "6", color: "text-amber-600" },
-              ].map((s, i) => (
+              {stats.map((s, i) => (
                 <div key={i} className="flex justify-between items-center">
                   <span className="text-xs text-gray-500">{s.label}</span>
                   <span className={`text-sm font-bold ${s.color}`}>{s.val}</span>
                 </div>
               ))}
+              {stats.length === 0 && <p className="text-xs text-gray-400">No stats available.</p>}
             </div>
           </div>
 
@@ -260,27 +172,26 @@ export function ActivityFeedPage() {
               Trending Categories
             </h2>
             <div className="space-y-2">
-              {[
-                { emoji: "♻️", cat: "Recyclable", count: 21, pct: 45, color: "bg-blue-500" },
-                { emoji: "🌱", cat: "Organic", count: 14, pct: 30, color: "bg-green-500" },
-                { emoji: "💻", cat: "E-Waste", count: 8, pct: 17, color: "bg-purple-500" },
-                { emoji: "⚠️", cat: "Hazardous", count: 4, pct: 8, color: "bg-red-500" },
-              ].map((c, i) => (
-                <div key={i}>
-                  <div className="flex justify-between text-xs mb-1">
-                    <span className="text-gray-600">
-                      {c.emoji} {c.cat}
-                    </span>
-                    <span className="text-gray-400">{c.count}</span>
+              {trending.map((c, i) => {
+                const meta = categoryMeta[c.cat?.toLowerCase()] || { emoji: "♻️", color: "bg-gray-400" };
+                return (
+                  <div key={i}>
+                    <div className="flex justify-between text-xs mb-1">
+                      <span className="text-gray-600 inline-flex items-center gap-1">
+                        <span>{meta.emoji}</span> <span className="capitalize">{c.cat}</span>
+                      </span>
+                      <span className="text-gray-400">{c.count}</span>
+                    </div>
+                    <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full ${meta.color} rounded-full`}
+                        style={{ width: `${c.pct}%` }}
+                      ></div>
+                    </div>
                   </div>
-                  <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                    <div
-                      className={`h-full ${c.color} rounded-full`}
-                      style={{ width: `${c.pct}%` }}
-                    ></div>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
+              {trending.length === 0 && <p className="text-xs text-gray-400">No trends yet.</p>}
             </div>
           </div>
         </div>
@@ -320,10 +231,11 @@ export function ActivityFeedPage() {
 
           {/* Feed cards */}
           {filteredFeed.map((item) => {
-            const isLiked = likedItems[item.id] ?? item.liked;
-            const likeCount = item.likes + (likedItems[item.id] !== undefined
-              ? (likedItems[item.id] ? 1 : 0) - (item.liked ? 1 : 0)
-              : 0);
+            const isLiked = likedItems[item.id] ?? false;
+            const likeCount = (item.likes || 0) + (isLiked ? 1 : 0);
+            const meta = categoryMeta[item.category?.toLowerCase()] || { emoji: "♻️", color: "bg-gray-400", bg: "bg-gray-100", text: "text-gray-700" };
+            const isDisputed = item.status === 'PENDING' || item.status === 'FLAGGED';
+            const catUpper = item.category ? item.category.charAt(0).toUpperCase() + item.category.slice(1) : 'Unknown';
 
             return (
               <div
@@ -334,7 +246,7 @@ export function ActivityFeedPage() {
                   {/* User header */}
                   <div className="flex items-center gap-3 mb-3">
                     <div
-                      className={`w-10 h-10 rounded-full bg-gradient-to-br ${item.color} flex items-center justify-center text-white text-sm font-bold flex-shrink-0`}
+                      className={`w-10 h-10 rounded-full bg-gradient-to-br from-gray-400 to-gray-500 flex items-center justify-center text-white text-sm font-bold flex-shrink-0`}
                     >
                       {item.avatar}
                     </div>
@@ -345,12 +257,12 @@ export function ActivityFeedPage() {
                         </span>
                         <span className="text-xs text-gray-400">classified</span>
                         <span className="text-xs font-semibold text-gray-800">
-                          {item.item}
+                          {item.subcategory || catUpper}
                         </span>
                       </div>
                       <div className="flex items-center gap-2 mt-0.5">
                         <Clock className="w-3 h-3 text-gray-400" />
-                        <span className="text-xs text-gray-400">{item.time}</span>
+                        <span className="text-xs text-gray-400">{timeAgo(item.created_at)}</span>
                       </div>
                     </div>
                     <button className="text-gray-400 hover:text-emerald-600 transition-colors">
@@ -359,17 +271,17 @@ export function ActivityFeedPage() {
                   </div>
 
                   {/* Classification result */}
-                  <div className={`${item.catBg} rounded-xl p-3 mb-3`}>
+                  <div className={`${meta.bg} rounded-xl p-3 mb-3`}>
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <span className="text-2xl">{item.emoji}</span>
+                        <span className="text-2xl">{meta.emoji}</span>
                         <div>
                           <span
-                            className={`text-xs font-bold px-2 py-0.5 rounded-full ${item.catBg} ${item.catText} border`}
+                            className={`text-xs font-bold px-2 py-0.5 rounded-full ${meta.bg} ${meta.text} border`}
                           >
-                            {item.category}
+                            {catUpper}
                           </span>
-                          {item.disputed && (
+                          {isDisputed && (
                             <span className="ml-1 text-xs font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200">
                               ⏳ In Dispute
                             </span>
@@ -377,14 +289,14 @@ export function ActivityFeedPage() {
                           <div className="flex items-center gap-2 mt-1">
                             <div className="h-1.5 w-24 bg-white/60 rounded-full overflow-hidden">
                               <div
-                                className={`h-full bg-gradient-to-r ${confidenceBg(item.confidence)} rounded-full`}
-                                style={{ width: `${item.confidence * 100}%` }}
+                                className={`h-full bg-gradient-to-r ${confidenceBg(item.confidence_score)} rounded-full`}
+                                style={{ width: `${item.confidence_score * 100}%` }}
                               ></div>
                             </div>
                             <span
-                              className={`text-xs font-semibold ${confidenceColor(item.confidence)}`}
+                              className={`text-xs font-semibold ${confidenceColor(item.confidence_score)}`}
                             >
-                              {(item.confidence * 100).toFixed(0)}% confidence
+                              {(item.confidence_score * 100).toFixed(0)}% confidence
                             </span>
                           </div>
                         </div>
@@ -393,9 +305,9 @@ export function ActivityFeedPage() {
                         <div className="flex items-center gap-1 justify-end">
                           <Leaf className="w-3.5 h-3.5 text-emerald-500" />
                           <span
-                            className={`text-sm font-bold ${item.disputed ? "text-amber-600" : "text-emerald-600"}`}
+                            className={`text-sm font-bold ${isDisputed ? "text-amber-600" : "text-emerald-600"}`}
                           >
-                            {item.disputed ? "Pending" : `+${item.points}`}
+                            {isDisputed ? "Pending" : `+${item.points_awarded}`}
                           </span>
                         </div>
                         <p className="text-xs text-gray-400">pts</p>
@@ -425,7 +337,7 @@ export function ActivityFeedPage() {
                     </button>
                     <button className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-blue-400 transition-colors">
                       <MessageCircle className="w-4 h-4" />
-                      <span>{item.comments}</span>
+                      <span>{item.comments || 0}</span>
                     </button>
                     <button className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-emerald-500 transition-colors">
                       <Share2 className="w-4 h-4" />
