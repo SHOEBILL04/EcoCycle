@@ -185,6 +185,13 @@ export function SubmitWastePage() {
       clearInterval(interval);
       setAnalysisProgress(100);
       
+      if (response.status === 401) {
+        clearInterval(interval);
+        setStatus("idle");
+        alert('Your session has expired. Please sign in again.');
+        return;
+      }
+
       const payload = await response.json();
       
       if (response.status === 422 && payload.status === 'FLAGGED') {
@@ -250,11 +257,13 @@ export function SubmitWastePage() {
       // Notify the global layout that user points/stats have changed
       window.dispatchEvent(new CustomEvent('user-updated'));
 
-    } catch (err) {
+    } catch (err: any) {
       clearInterval(interval);
       setStatus("idle");
       console.error(err);
-      alert('Failed to analyze image with the server. Please sign in first.');
+      alert(err.message === 'Classification failed' 
+        ? 'Server encountered an error during analysis. Please try again later.' 
+        : `Error: ${err.message || 'Failed to analyze image'}`);
     }
   };
 

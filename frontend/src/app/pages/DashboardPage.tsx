@@ -86,7 +86,8 @@ export function DashboardPage() {
     );
   }
 
-  const { stats, points_history, category_data, recent_submissions, leaderboard_nearby, badges, challenges } = data;
+  const { stats, points_history, category_data, recent_submissions, leaderboard_nearby, badges, challenges, daily_challenge } = data;
+  const dc = daily_challenge || { target: 3, progress: 0, bonus_pts: 50, completed: false, awarded: false, label: 'Classify 3 e-waste items for +50 bonus pts' };
 
   const statCards = [
     {
@@ -176,34 +177,40 @@ export function DashboardPage() {
       </div>
 
       {/* Daily challenge banner */}
-      <div className="bg-gradient-to-r from-violet-600 to-purple-700 rounded-2xl p-4 mb-6 flex items-center justify-between">
+      <div className={`bg-gradient-to-r ${dc.completed ? 'from-emerald-600 to-green-700' : 'from-violet-600 to-purple-700'} rounded-2xl p-4 mb-6 flex items-center justify-between`}>
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
-            <Zap className="w-5 h-5 text-yellow-300" />
+            {dc.completed ? <CheckCircle className="w-5 h-5 text-yellow-300" /> : <Zap className="w-5 h-5 text-yellow-300" />}
           </div>
           <div>
-            <p className="text-white font-semibold text-sm">Daily Challenge Active</p>
-            <p className="text-purple-200 text-xs">Classify 3 e-waste items for +50 bonus pts</p>
+            <p className="text-white font-semibold text-sm">
+              {dc.completed ? '🎉 Daily Challenge Complete!' : 'Daily Challenge Active'}
+            </p>
+            <p className={`text-xs ${dc.completed ? 'text-emerald-200' : 'text-purple-200'}`}>
+              {dc.completed && dc.awarded ? `+${dc.bonus_pts} bonus pts awarded!` : dc.label}
+            </p>
           </div>
         </div>
         <div className="flex items-center gap-3">
           <div className="text-right">
-            <p className="text-white text-sm font-bold">1/3 done</p>
+            <p className="text-white text-sm font-bold">{dc.progress}/{dc.target} done</p>
             <div className="flex gap-1 mt-1">
-              {[1, 2, 3].map((i) => (
+              {Array.from({ length: dc.target }, (_, i) => (
                 <div
                   key={i}
-                  className={`w-6 h-1.5 rounded-full ${i === 1 ? "bg-yellow-400" : "bg-white/20"}`}
-                ></div>
+                  className={`w-6 h-1.5 rounded-full ${i < dc.progress ? 'bg-yellow-400' : 'bg-white/20'}`}
+                />
               ))}
             </div>
           </div>
-          <Link
-            to="/app/submit"
-            className="bg-white text-purple-700 font-bold text-xs px-4 py-2 rounded-lg hover:bg-purple-50 transition-colors"
-          >
-            Start →
-          </Link>
+          {!dc.completed && (
+            <Link
+              to="/app/submit"
+              className="bg-white text-purple-700 font-bold text-xs px-4 py-2 rounded-lg hover:bg-purple-50 transition-colors"
+            >
+              Start →
+            </Link>
+          )}
         </div>
       </div>
 

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use App\Models\Notification;
 use App\Models\Transaction;
 use App\Models\SystemAudit;
 use Illuminate\Support\Facades\DB;
@@ -79,6 +80,13 @@ class RewardController extends Controller
                 'user_id' => $user->id,
                 'description' => "User {$user->id} redeemed {$cost} points for {$request->reward_name}",
                 'payload' => json_encode(['cost' => $cost, 'reward' => $request->reward_name])
+            ]);
+
+            Notification::create([
+                'user_id' => $user->id,
+                'message' => "You successfully redeemed {$cost} points for: {$request->reward_name}",
+                'type' => 'points_redeemed',
+                'is_read' => false,
             ]);
 
             DB::commit();

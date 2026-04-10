@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Notification;
 use App\Models\Submission;
 use App\Models\SystemAudit;
 use App\Services\RewardEngineService;
@@ -74,6 +75,14 @@ class SubmissionController extends Controller
                         'penalty' => 30,
                         'flags' => $user->flags,
                     ],
+                ]);
+
+                Notification::create([
+                    'user_id' => $user->id,
+                    'message' => "FLAGGED: Repetitive image detected. A 30 point penalty has been applied.",
+                    'type' => 'submission_flagged',
+                    'submission_id' => $submission->id,
+                    'is_read' => false,
                 ]);
 
                 DB::commit();
@@ -186,6 +195,14 @@ class SubmissionController extends Controller
                     ? "Echo_engine confidence was low, so Gemini high accuracy fallback checked the image and you earned {$points} points."
                     : "High confidence! You earned {$points} points.";
 
+                Notification::create([
+                    'user_id' => $submission->user_id,
+                    'message' => "Success! Your submission was rewarded with {$points} points.",
+                    'type' => 'reward_earned',
+                    'submission_id' => $submission->id,
+                    'is_read' => false,
+                ]);
+
                 return response()->json([
                     'status' => $responseStatus,
                     'message' => $responseMessage,
@@ -227,6 +244,14 @@ class SubmissionController extends Controller
                     ],
                 ]);
 
+                Notification::create([
+                    'user_id' => $submission->user_id,
+                    'message' => "Resolved! Initial confidence low, but alternative engine confirmed your submission. You earned {$points} points.",
+                    'type' => 'reward_earned',
+                    'submission_id' => $submission->id,
+                    'is_read' => false,
+                ]);
+
                 DB::commit();
 
                 return response()->json([
@@ -258,6 +283,14 @@ class SubmissionController extends Controller
                     'primary' => $primaryScore,
                     'alternative' => $altScore,
                 ],
+            ]);
+
+            Notification::create([
+                'user_id' => $submission->user_id,
+                'message' => "Your submission is under review by a moderator.",
+                'type' => 'submission_pending',
+                'submission_id' => $submission->id,
+                'is_read' => false,
             ]);
 
             DB::commit();

@@ -1,6 +1,7 @@
 import { createBrowserRouter } from "react-router";
 import { AppLayout } from "./components/layout/AppLayout";
 import { ProtectedRoute } from "./components/ProtectedRoute";
+import { GuestRoute } from "./components/GuestRoute";
 import { LandingPage } from "./pages/LandingPage";
 import { LoginPage } from "./pages/LoginPage";
 import { SignUpPage } from "./pages/SignUpPage";
@@ -20,15 +21,27 @@ export const router = createBrowserRouter([
   {
     path: "/",
     errorElement: <NotFoundPage />,
-    Component: LandingPage,
+    element: (
+      <GuestRoute>
+        <LandingPage />
+      </GuestRoute>
+    ),
   },
   {
     path: "/login",
-    Component: LoginPage,
+    element: (
+      <GuestRoute>
+        <LoginPage />
+      </GuestRoute>
+    ),
   },
   {
     path: "/signup",
-    Component: SignUpPage,
+    element: (
+      <GuestRoute>
+        <SignUpPage />
+      </GuestRoute>
+    ),
   },
   {
     path: "/admin/dashboard",

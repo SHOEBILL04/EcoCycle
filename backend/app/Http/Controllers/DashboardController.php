@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use App\Models\Notification;
 use App\Models\Submission;
 use App\Models\User;
 use App\Models\Transaction;
@@ -148,6 +149,7 @@ class DashboardController extends Controller
             ['title' => 'Dispute Master', 'desc' => '5 disputes won', 'progress' => min(100, round(($disputesWon / 5) * 100)), 'color' => 'bg-amber-500'],
         ];
 
+        // 5a. Clan Alerts
         $clanAlerts = [];
         if ($user->clan_id) {
             $clanAlerts = User::where('clan_id', $user->clan_id)
@@ -156,6 +158,50 @@ class DashboardController extends Controller
                 ->select('id', 'name', 'flags')
                 ->get();
         }
+
+        // 6. Daily Challenge: Classify 3 e-waste items today → +50 bonus pts
+        $challengeTarget = 3;
+        $challengeBonus  = 50;
+        $ewasteToday = Submission::where('user_id', $user->id)
+            ->whereIn('category', ['e-waste'])
+            ->whereIn('status', ['REWARDED', 'PENDING', 'FLAGGED'])
+            ->whereDate('created_at', Carbon::today())
+            ->count();
+
+        $challengeCompleted  = $ewasteToday >= $challengeTarget;
+
+        // Award the bonus once per day if just completed (no duplicate)
+        $alreadyAwarded = Transaction::where('user_id', $user->id)
+            ->where('type', 'daily_challenge')
+            ->whereDate('created_at', Carbon::today())
+            ->exists();
+
+        if ($challengeCompleted && !$alreadyAwarded) {
+            Transaction::create([
+                'user_id'     => $user->id,
+                'type'        => 'daily_challenge',
+                'points'      => $challengeBonus,
+                'description' => 'Daily challenge bonus: 3 e-waste classified',
+            ]);
+
+            Notification::create([
+                'user_id' => $user->id,
+                'message' => "Daily Challenge Complete! You earned a {$challengeBonus} point bonus for classifying 3 e-waste items.",
+                'type' => 'reward_earned',
+                'is_read' => false,
+            ]);
+
+            $user->increment('total_points', $challengeBonus);
+        }
+
+        $dailyChallenge = [
+            'target'    => $challengeTarget,
+            'progress'  => min($ewasteToday, $challengeTarget),
+            'bonus_pts' => $challengeBonus,
+            'completed' => $challengeCompleted,
+            'awarded'   => $alreadyAwarded || $challengeCompleted,
+            'label'     => "Classify {$challengeTarget} e-waste items for +{$challengeBonus} bonus pts",
+        ];
 
         return response()->json([
             'stats' => [
@@ -174,6 +220,7 @@ class DashboardController extends Controller
             'leaderboard_nearby' => $nearbyUsers,
             'badges' => $badges,
             'challenges' => $challenges,
+            'daily_challenge' => $dailyChallenge,
         ]);
     }
 }
