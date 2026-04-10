@@ -36,6 +36,11 @@ class SubmissionController extends Controller
         // Save Image to Storage
         $imageName = 'submission_' . time() . '_' . $imageHash . '.jpg';
         $imagePath = 'submissions/' . $imageName;
+
+        if (!\Illuminate\Support\Facades\Storage::disk('public')->exists('submissions')) {
+            \Illuminate\Support\Facades\Storage::disk('public')->makeDirectory('submissions');
+        }
+
         \Illuminate\Support\Facades\Storage::disk('public')->put($imagePath, base64_decode($b64));
         $imageUrl = \Illuminate\Support\Facades\Storage::disk('public')->url($imagePath);
 
