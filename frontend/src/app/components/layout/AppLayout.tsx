@@ -47,44 +47,55 @@ export function AppLayout() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  useEffect(() => {
-    fetch(`${import.meta.env.VITE_API_URL}/user`, {
-        headers: {
-            'Authorization': `Bearer ${localStorage.getItem('access_token')}`
-        }
-    })
-    .then(res => res.json())
-    .then(data => {
-        if (data.id) {
-          setUser(data);
-          const normalizedRole = String(data.role ?? 'citizen').toLowerCase();
-          localStorage.setItem('role', normalizedRole);
-          localStorage.setItem('user_email', data.email ?? '');
-          const roleText: UserRole =
-            normalizedRole === 'admin'
-              ? 'Administrator'
-              : normalizedRole === 'moderator'
-                ? 'Moderator'
-                : 'Citizen';
-          setCurrentRole(roleText);
-        }
-    })
-    .catch(console.error);
+    const fetchUser = () => {
+        fetch(`${import.meta.env.VITE_API_URL}/user`, {
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+            }
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.id) {
+              setUser(data);
+              const normalizedRole = String(data.role ?? 'citizen').toLowerCase();
+              localStorage.setItem('role', normalizedRole);
+              localStorage.setItem('user_email', data.email ?? '');
+              const roleText: UserRole =
+                normalizedRole === 'admin'
+                  ? 'Administrator'
+                  : normalizedRole === 'moderator'
+                    ? 'Moderator'
+                    : 'Citizen';
+              setCurrentRole(roleText);
+            }
+        })
+        .catch(console.error);
+    };
 
-    fetch(`${import.meta.env.VITE_API_URL}/notifications`, {
-        headers: {
-            'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
-            'Accept': 'application/json'
-        }
-    })
-    .then(res => res.json())
-    .then(data => {
-        const list = data.notifications || [];
-        setNotifications(list);
-        setUnreadCount(typeof data.unreadCount === 'number' ? data.unreadCount : list.filter((n: any) => !n.is_read).length);
-    })
-    .catch(console.error);
-  }, []);
+    useEffect(() => {
+        fetchUser();
+
+        const handleUserUpdate = () => fetchUser();
+        window.addEventListener('user-updated', handleUserUpdate);
+
+        fetch(`${import.meta.env.VITE_API_URL}/notifications`, {
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+                'Accept': 'application/json'
+            }
+        })
+        .then(res => res.json())
+        .then(data => {
+            const list = data.notifications || [];
+            setNotifications(list);
+            setUnreadCount(typeof data.unreadCount === 'number' ? data.unreadCount : list.filter((n: any) => !n.is_read).length);
+        })
+        .catch(console.error);
+
+        return () => {
+            window.removeEventListener('user-updated', handleUserUpdate);
+        };
+    }, []);
 
   const markNotificationRead = async (notificationId: number) => {
     try {
@@ -107,9 +118,14 @@ export function AppLayout() {
     (user?.email ?? localStorage.getItem('user_email') ?? '').toLowerCase() === 'rockstar@gmail.com' ||
     (localStorage.getItem('role') ?? '').toLowerCase() === 'admin';
 
-  const navItems = isAdmin
-    ? [...baseNavItems, { label: "Admin Dashboard", icon: Shield, path: "/app/admin" }]
-    : baseNavItems;
+  const isModerator = currentRole === 'Moderator' || (localStorage.getItem('role') ?? '').toLowerCase() === 'moderator';
+
+  let navItems = baseNavItems;
+  if (isAdmin) {
+    navItems = [...baseNavItems, { label: "Admin Dashboard", icon: Shield, path: "/app/admin" }];
+  } else if (isModerator) {
+    navItems = [...baseNavItems, { label: "Moderator Queue", icon: Activity, path: "/app/moderator" }];
+  }
 
   const isActive = (path: string) => {
     if (path === "/app") return location.pathname === "/app";

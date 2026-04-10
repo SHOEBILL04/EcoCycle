@@ -10,6 +10,12 @@ use Exception;
 
 class RewardEngineService
 {
+    public const POINTS_BY_CATEGORY = [
+        'recyclable' => 10,
+        'organic'    => 8,
+        'e-waste'    => 15,
+        'hazardous'  => 20,
+    ];
     /**
      * The single canonical path for awarding points to a resolved submission.
      *
@@ -33,7 +39,7 @@ class RewardEngineService
         }
 
         // ── State machine guard ──────────────────────────────────────────────
-        $allowedFromStates = ['SUBMITTED', 'PENDING'];
+        $allowedFromStates = ['SUBMITTED', 'PENDING', 'FLAGGED'];
         if (!in_array($submission->status, $allowedFromStates, true)) {
             throw new Exception(
                 "Invalid state transition: cannot reward a submission in status '{$submission->status}'."
@@ -48,6 +54,7 @@ class RewardEngineService
 
             // Update submission status first
             $submission->status = 'REWARDED';
+            $submission->points_awarded = $pointsAwarded;
             $submission->save();
 
             // Create the Transaction record
@@ -62,10 +69,12 @@ class RewardEngineService
 
             // Update user points
             $user->increment('total_points', $pointsAwarded);
+            $user->refresh(); // Sync to get the accurate point total for audit log
 
             // Update clan points if applicable
             if ($clan) {
                 $clan->increment('total_points', $pointsAwarded);
+                $clan->refresh();
             }
 
             // Synchronous audit write — part of the same transaction

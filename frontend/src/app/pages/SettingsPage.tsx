@@ -51,6 +51,7 @@ export function SettingsPage() {
   const [passLoading, setPassLoading] = useState(false);
   const [passError, setPassError] = useState("");
   const [passSuccess, setPassSuccess] = useState(false);
+  const [deletePass, setDeletePass] = useState("");
 
   const [profile, setProfile] = useState({
     name: "",
@@ -217,6 +218,37 @@ export function SettingsPage() {
       setPassError(err.message || "An error occurred");
     } finally {
       setPassLoading(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    const confirmed = window.confirm(
+      "CRITICAL ACTION: Are you absolutely sure you want to delete your account? This will permanently remove all your eco-points, classification history, and social data. This action CANNOT be undone."
+    );
+
+    if (!confirmed) return;
+
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/user`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+        },
+        body: JSON.stringify({ current_password: deletePass }),
+      });
+
+      if (res.ok) {
+        localStorage.removeItem("access_token");
+        localStorage.removeItem("user_role");
+        window.location.href = "/"; // Instant logout and redirect
+      } else {
+        const data = await res.json();
+        alert(data.message || "Failed to delete account. Please try again.");
+      }
+    } catch (err) {
+      console.error("Deletion error:", err);
+      alert("An error occurred during account deletion.");
     }
   };
 
@@ -756,7 +788,23 @@ export function SettingsPage() {
                       This action cannot be undone and will forfeit all earned
                       points.
                     </p>
-                    <button className="text-sm font-medium text-white bg-red-500 hover:bg-red-600 px-4 py-2 rounded-lg transition-colors">
+                    <div className="mb-3">
+                      <label className="block text-xs font-semibold text-red-800 mb-1">
+                        Confirm Password
+                      </label>
+                      <input 
+                        type="password"
+                        placeholder="Enter password to confirm deletion"
+                        value={deletePass}
+                        onChange={(e) => setDeletePass(e.target.value)}
+                        className="w-full sm:w-64 border border-red-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-red-500 bg-white"
+                      />
+                    </div>
+                    <button 
+                      onClick={handleDeleteAccount}
+                      disabled={!deletePass}
+                      className={`text-sm font-medium text-white px-4 py-2 rounded-lg transition-colors ${deletePass ? 'bg-red-500 hover:bg-red-600' : 'bg-red-300 cursor-not-allowed'}`}
+                    >
                       Delete My Account
                     </button>
                   </div>

@@ -32,7 +32,8 @@ class LeaderboardController extends Controller
                 'username' => '@' . strtolower(str_replace(' ', '', $u->name)),
                 'points' => $u->total_points,
                 'accuracy' => $accuracy,
-                'submissions' => $u->total_count, 
+                'submissions' => $u->total_count,
+                'flags' => $u->flags,
                 'change' => 0,
                 'avatar' => strtoupper(substr($u->name, 0, 2)),
                 'color' => 'from-gray-400 to-gray-500',
@@ -88,6 +89,7 @@ class LeaderboardController extends Controller
                         'points' => $u->total_points,
                         'accuracy' => $accuracy,
                         'submissions' => $u->total_count,
+                        'flags' => $u->flags,
                         'change' => 0,
                         'avatar' => strtoupper(substr($u->name, 0, 2)),
                         'color' => 'from-emerald-400 to-emerald-600',
@@ -106,6 +108,7 @@ class LeaderboardController extends Controller
                 'rank' => $myRank,
                 'name' => $user->name,
                 'points' => $user->total_points,
+                'flags' => $user->flags,
                 'avatar' => strtoupper(substr($user->name, 0, 2))
             ];
 

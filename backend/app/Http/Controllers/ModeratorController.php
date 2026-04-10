@@ -27,18 +27,20 @@ class ModeratorController extends Controller
     ];
 
     /**
-     * List all PENDING disputes for the moderator queue.
+     * List all PENDING and FLAGGED submissions for the moderator queue.
      * Includes both engine scores so the moderator has full context.
      */
     public function disputes(Request $request)
     {
         $disputes = Submission::with('user:id,name')
-            ->where('status', 'PENDING')
+            ->whereIn('status', ['PENDING', 'FLAGGED'])
             ->orderBy('created_at', 'asc')
             ->get()
             ->map(function ($submission) {
                 return [
                     'id' => $submission->id,
+                    'status' => $submission->status,
+                    'flaggedReason' => $submission->flagged_reason,
                     'imageUrl' => $submission->image_url,
                     'aiConfidenceScores' => $submission->ai_confidence_scores,
                     'createdAt' => $submission->created_at,
@@ -57,7 +59,7 @@ class ModeratorController extends Controller
 
         $moderator = $request->user();
         $category = $request->input('category');
-        $points = self::POINTS_BY_CATEGORY[$category];
+        $points = RewardEngineService::POINTS_BY_CATEGORY[$category];
 
         DB::beginTransaction();
         try {
@@ -66,100 +68,87 @@ class ModeratorController extends Controller
                 ->lockForUpdate()
                 ->firstOrFail();
 
-            if ($submission->status !== 'PENDING') {
+            if (!in_array($submission->status, ['PENDING', 'FLAGGED'])) {
                 DB::rollBack();
-                return response()->json(['error' => 'Already resolved'], 409);
+                return response()->json(['error' => 'Submission is not in a modifiable state.'], 409);
             }
 
-            $submission->status = 'RESOLVED';
+            // Update submission classification data
             $submission->final_category = $category;
-            $submission->final_confidence = 0.80;
+            $submission->final_confidence = 0.95; // Moderator manual override is high confidence
             $submission->resolved_by = $moderator->id;
             $submission->resolved_at = now();
-            $submission->save();
-
-            $pointsAwarded = $this->awardPointsOnce($submission, $submission->user, $category, $points);
+            // Note: RewardEngineService will handle status transition to REWARDED and points_awarded
+            
+            // Delegate to canonical reward logic
+            $this->rewardEngine->processResolvedSubmission($submission, $points);
 
             Notification::create([
                 'user_id' => $submission->user_id,
-                'message' => "Your submission has been reviewed. It was classified as {$category}. You earned {$pointsAwarded} points!",
+                'message' => "Moderator review complete. Your submission was confirmed as '{$category}'. You earned {$points} points!",
                 'type' => 'dispute_resolved',
                 'submission_id' => $submission->id,
                 'is_read' => false,
             ]);
 
             SystemAudit::create([
-                'event_type' => 'DISPUTE_RESOLVED',
+                'event_type' => 'MODERATOR_VERDICT_SUBMITTED',
                 'user_id' => $moderator->id,
-                'description' => "Submission #{$submission->id} resolved by moderator #{$moderator->id} as {$category}.",
+                'description' => "Submission #{$submission->id} resolved by moderator as {$category}.",
                 'payload' => [
                     'submissionId' => $submission->id,
-                    'moderatorId' => $moderator->id,
                     'finalCategory' => $category,
-                    'pointsAwarded' => $pointsAwarded,
-                    'timestamp' => now()->toISOString(),
+                    'pointsAwarded' => $points,
                 ],
             ]);
 
             DB::commit();
 
             return response()->json([
+                'status' => 'success',
                 'finalCategory' => $category,
-                'pointsAwarded' => $pointsAwarded,
-                'resolvedBy' => $moderator->id,
+                'pointsAwarded' => $points,
             ]);
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(['error' => 'Verdict submission failed.'], 500);
+            return response()->json(['error' => 'Verdict failed: ' . $e->getMessage()], 500);
         }
     }
 
     /**
-     * Resolve a dispute manually.
-     * Valid resolutions: REWARDED or REJECTED.
-     * State machine: only PENDING submissions may be resolved here.
+     * Resolve a dispute manually as REJECTED.
      */
     public function resolve(Request $request, $id)
     {
         $request->validate([
-            'resolution' => 'required|in:REWARDED,REJECTED',
-            'points'     => 'required_if:resolution,REWARDED|integer|min:1',
+            'resolution' => 'required|in:REJECTED',
         ]);
 
         $submission = Submission::findOrFail($id);
 
-        if ($submission->status !== 'PENDING') {
-            return response()->json(['error' => 'Submission is not in PENDING status.'], 400);
+        if (!in_array($submission->status, ['PENDING', 'FLAGGED'])) {
+            return response()->json(['error' => 'Submission is not in a modifiable state.'], 400);
         }
 
         DB::beginTransaction();
         try {
-            if ($request->resolution === 'REWARDED') {
-                // Delegate to RewardEngineService — single canonical award path
-                $this->rewardEngine->processResolvedSubmission($submission, (int) $request->points);
-            } else {
-                // REJECTED path
-                $submission->status = 'REJECTED';
-                $submission->save();
+            // Only REJECTED handled here now, REWARDED is handled via verdict
+            $submission->status = 'REJECTED';
+            $submission->save();
 
-                SystemAudit::create([
-                    'event_type'  => 'DISPUTE_REJECTED',
-                    'user_id'     => $request->user()->id,
-                    'description' => "Moderator [{$request->user()->id}] rejected submission #{$id}.",
-                    'payload'     => ['submission_id' => $id, 'moderator_id' => $request->user()->id],
+            // Apply silent -10 point penalty
+            $owner = User::find($submission->user_id);
+            if ($owner) {
+                DB::table('users')->where('id', $owner->id)->update([
+                    'total_points' => DB::raw("GREATEST(0, CAST(total_points AS SIGNED) - 10)")
                 ]);
             }
 
-            // Top-level audit entry for the resolution action
             SystemAudit::create([
-                'event_type'  => 'DISPUTE_RESOLVED',
+                'event_type'  => 'SUBMISSION_REJECTED',
                 'user_id'     => $request->user()->id,
-                'description' => "Moderator [{$request->user()->id}] resolved dispute for submission #{$id} → {$request->resolution}.",
-                'payload'     => [
-                    'submission_id' => $id,
-                    'resolution'    => $request->resolution,
-                    'points'        => $request->resolution === 'REWARDED' ? $request->points : 0,
-                ],
+                'description' => "Moderator manually rejected submission #{$id}. Silent -10 point penalty applied.",
+                'payload'     => ['submission_id' => $id, 'moderator_id' => $request->user()->id, 'penalty' => 10],
             ]);
 
             DB::commit();
@@ -170,7 +159,7 @@ class ModeratorController extends Controller
             ]);
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(['error' => 'Resolution failed: ' . $e->getMessage()], 500);
+            return response()->json(['error' => 'Rejection failed: ' . $e->getMessage()], 500);
         }
     }
 

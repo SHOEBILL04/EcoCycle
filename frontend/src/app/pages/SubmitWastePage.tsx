@@ -246,6 +246,11 @@ export function SubmitWastePage() {
       setResult(fakeResult as any);
       setStatus(isHigh ? "result" : "dispute");
 
+      // Notify the global layout that user points/stats have changed
+      if (isHigh) {
+        window.dispatchEvent(new CustomEvent('user-updated'));
+      }
+
     } catch (err) {
       clearInterval(interval);
       setStatus("idle");
@@ -679,11 +684,9 @@ export function SubmitWastePage() {
                       <span
                         className={`text-base font-bold ${result.isPenalty ? "text-red-600" : status === "dispute" ? "text-gray-400" : "text-emerald-600"}`}
                       >
-                        {result.isPenalty
-                          ? `${result.points} pts`
-                          : status === "dispute"
-                            ? "Pending resolution"
-                            : `+${result.points} pts`}
+                        {result.isPenalty || status === "dispute"
+                          ? "Review Pending"
+                          : `+${result.points} pts`}
                       </span>
                     </div>
 

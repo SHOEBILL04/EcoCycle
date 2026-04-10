@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use App\Models\Submission;
 use App\Models\User;
 use App\Models\Transaction;
@@ -13,6 +14,7 @@ class DashboardController extends Controller
     public function index(Request $request)
     {
         $user = $request->user();
+        $user->refresh();
         
         $totalSubmissions = Submission::where('user_id', $user->id)->count();
         $rewardedSubmissions = Submission::where('user_id', $user->id)->where('status', 'REWARDED')->count();
@@ -125,7 +127,7 @@ class DashboardController extends Controller
                 return [
                     'rank' => $theirRank,
                     'name' => $u->name,
-                    'score' => number_format($u->total_points) . ' pts',
+                    'pts' => (int) $u->total_points,
                     'initial' => strtoupper(substr($u->name, 0, 2)),
                     'isMe' => $u->id === auth()->id()
                 ];

@@ -158,4 +158,52 @@ class AuthController extends Controller
             'settings' => $user->settings
         ]);
     }
+
+    public function deleteAccount(Request $request)
+    {
+        $request->validate([
+            'current_password' => 'required|string',
+        ]);
+
+        $user = $request->user();
+
+        // Verify password
+        if (!Hash::check($request->current_password, $user->password)) {
+            return response()->json(['message' => 'The provided password does not match. Account deletion cancelled.'], 401);
+        }
+
+        // ── Primary Admin Protection ────────────────────────────────────────
+        if ($this->isPrimaryAdminEmail($user->email)) {
+            return response()->json(['message' => 'The primary administrator account cannot be deleted.'], 403);
+        }
+
+        \Illuminate\Support\Facades\DB::beginTransaction();
+        try {
+            // Log the intentional deletion before the record is gone
+            \App\Models\SystemAudit::create([
+                'event_type' => 'ACCOUNT_PERMANENTLY_DELETED',
+                'user_id' => $user->id,
+                'description' => "User {$user->email} requested permanent account deletion.",
+            ]);
+
+            // Delete related resources
+            // Note: If cascading deletes are NOT configured in migrations, we do it here
+            $user->submissions()->delete();
+            $user->notifications()->delete();
+            \App\Models\Transaction::where('user_id', $user->id)->delete();
+
+            // Revoke all tokens
+            $user->tokens()->delete();
+
+            // Final deletion
+            $user->delete();
+
+            \Illuminate\Support\Facades\DB::commit();
+
+            return response()->json(['message' => 'Account deleted successfully. We are sorry to see you go!']);
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\DB::rollBack();
+            return response()->json(['error' => 'Deletion failed: ' . $e->getMessage()], 500);
+        }
+    }
 }

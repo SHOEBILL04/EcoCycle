@@ -16,6 +16,7 @@ Route::middleware(['auth:sanctum', 'not.banned'])->group(function () {
     Route::post('/user/password', [AuthController::class, 'updatePassword']);
     Route::patch('/user/profile', [AuthController::class, 'updateProfile']);
     Route::patch('/user/settings', [AuthController::class, 'updateSettings']);
+    Route::delete('/user', [AuthController::class, 'deleteAccount']);
 
     // ── Citizen-accessible ───────────────────────────────────────────────────
     Route::post('/submissions', [\App\Http\Controllers\SubmissionController::class, 'store']);

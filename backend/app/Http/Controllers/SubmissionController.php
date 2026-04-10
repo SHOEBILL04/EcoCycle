@@ -32,6 +32,12 @@ class SubmissionController extends Controller
         $b64 = preg_replace('#^data:image/[^;]+;base64,#', '', $request->input('image_b64'));
         $imageHash = md5($b64);
 
+        // Save Image to Storage
+        $imageName = 'submission_' . time() . '_' . $imageHash . '.jpg';
+        $imagePath = 'submissions/' . $imageName;
+        \Illuminate\Support\Facades\Storage::disk('public')->put($imagePath, base64_decode($b64));
+        $imageUrl = \Illuminate\Support\Facades\Storage::disk('public')->url($imagePath);
+
         $recentDuplicate = Submission::where('user_id', $user->id)
             ->where('image_hash', $imageHash)
             ->first();
@@ -40,9 +46,12 @@ class SubmissionController extends Controller
             DB::beginTransaction();
 
             try {
-                $user->total_points = max(0, $user->total_points - 30);
-                $user->flags += 1;
-                $user->save();
+                // Use atomic update to prevent race conditions (stale data overwriting recent rewards)
+                DB::table('users')->where('id', $user->id)->update([
+                    'total_points' => DB::raw("GREATEST(0, CAST(total_points AS SIGNED) - 30)"),
+                    'flags' => DB::raw("flags + 1")
+                ]);
+                $user->refresh(); // Sync the in-memory object for the response below
 
                 $submission = Submission::create([
                     'user_id' => $user->id,
@@ -51,6 +60,7 @@ class SubmissionController extends Controller
                     'secondary_confidence_score' => 0.00,
                     'status' => 'FLAGGED',
                     'flagged_reason' => 'Identical image submitted previously. Cheating detected.',
+                    'image_url' => $imageUrl,
                     'image_hash' => $imageHash,
                 ]);
 
@@ -70,9 +80,8 @@ class SubmissionController extends Controller
 
                 return response()->json([
                     'status' => 'FLAGGED',
-                    'message' => 'Duplicate image detected. You have been penalized 30 points and received 1 flag.',
+                    'message' => 'This submission has been flagged for further review by our moderators.',
                     'submission' => $submission,
-                    'penalty' => 30,
                     'flags' => $user->flags,
                     'total_points' => $user->total_points,
                 ], 422);
@@ -148,6 +157,7 @@ class SubmissionController extends Controller
                     'secondary_engine' => $classification['secondary_engine'] ?? null,
                 ],
                 'status' => 'SUBMITTED',
+                'image_url' => $imageUrl,
                 'image_hash' => $imageHash,
             ]);
 
@@ -168,7 +178,7 @@ class SubmissionController extends Controller
 
         if ($primaryScore >= $threshold) {
             try {
-                $points = 10;
+                $points = RewardEngineService::POINTS_BY_CATEGORY[$primaryCategory] ?? 10;
                 $this->rewardEngine->processResolvedSubmission($submission, $points);
 
                 $responseStatus = $echoFallbackTriggered ? 'REWARDED_VIA_DISPUTE' : 'REWARDED';
@@ -200,7 +210,7 @@ class SubmissionController extends Controller
 
         try {
             if ($altScore >= $threshold) {
-                $points = 10;
+                $points = RewardEngineService::POINTS_BY_CATEGORY[$altCategory] ?? 10;
                 $submission->category = $altCategory;
                 $submission->save();
 

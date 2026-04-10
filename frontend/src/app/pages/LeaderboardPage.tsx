@@ -124,6 +124,12 @@ function UserLeaderboard({ data, myInfo }: { data: any[], myInfo?: any }) {
               <div className="text-center">
                 <p className="text-white text-xs font-bold">{topThree[1].name}</p>
                 <p className="text-emerald-400 text-xs">{topThree[1].points.toLocaleString()} pts</p>
+                {topThree[1].flags >= 4 && (
+                    <div className="mt-1 flex items-center justify-center gap-1 bg-red-400/20 border border-red-400/30 px-2 py-0.5 rounded-full backdrop-blur-sm">
+                        <Flag className="w-3 h-3 text-red-400 fill-red-400" />
+                        <span className="text-[10px] text-red-300 font-bold">{topThree[1].flags}</span>
+                    </div>
+                )}
               </div>
               <div className="bg-gray-700 rounded-t-xl w-20 h-20 flex items-end justify-center pb-2">
                 <span className="text-white font-black text-2xl opacity-30">2</span>
@@ -143,6 +149,12 @@ function UserLeaderboard({ data, myInfo }: { data: any[], myInfo?: any }) {
               <div className="text-center">
                 <p className="text-yellow-300 text-sm font-bold">{topThree[0].name}</p>
                 <p className="text-yellow-400 text-xs">{topThree[0].points.toLocaleString()} pts</p>
+                {topThree[0].flags >= 4 && (
+                    <div className="mt-1 flex items-center justify-center gap-1 bg-red-400/20 border border-red-400/30 px-2 py-0.5 rounded-full backdrop-blur-sm">
+                        <Flag className="w-3 h-3 text-red-400 fill-red-400" />
+                        <span className="text-[10px] text-red-300 font-bold">{topThree[0].flags}</span>
+                    </div>
+                )}
               </div>
               <div className="bg-yellow-600/40 rounded-t-xl w-20 h-28 flex items-end justify-center pb-2">
                 <span className="text-yellow-400 font-black text-2xl opacity-50">1</span>
@@ -162,6 +174,12 @@ function UserLeaderboard({ data, myInfo }: { data: any[], myInfo?: any }) {
               <div className="text-center">
                 <p className="text-white text-xs font-bold">{topThree[2].name}</p>
                 <p className="text-emerald-400 text-xs">{topThree[2].points.toLocaleString()} pts</p>
+                {topThree[2].flags >= 4 && (
+                    <div className="mt-1 flex items-center justify-center gap-1 bg-red-400/20 border border-red-400/30 px-2 py-0.5 rounded-full backdrop-blur-sm">
+                        <Flag className="w-3 h-3 text-red-400 fill-red-400" />
+                        <span className="text-[10px] text-red-300 font-bold">{topThree[2].flags}</span>
+                    </div>
+                )}
               </div>
               <div className="bg-gray-700 rounded-t-xl w-20 h-14 flex items-end justify-center pb-2">
                 <span className="text-white font-black text-2xl opacity-30">3</span>
@@ -183,6 +201,12 @@ function UserLeaderboard({ data, myInfo }: { data: any[], myInfo?: any }) {
               <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-semibold">
                 You
               </span>
+              {myInfo.flags >= 4 && (
+                <div className="flex items-center gap-1 bg-red-50 border border-red-200 px-1.5 py-0.5 rounded-md">
+                  <Flag className="w-3 h-3 text-red-500 fill-red-500" />
+                  <span className="text-[10px] text-red-600 font-bold">{myInfo.flags}</span>
+                </div>
+              )}
             </div>
           </div>
           <div className="text-center">
@@ -258,6 +282,12 @@ function UserLeaderboard({ data, myInfo }: { data: any[], myInfo?: any }) {
                         </span>
                       )}
                       {user.badge && <span className="text-base">{user.badge}</span>}
+                      {user.flags >= 4 && (
+                        <div className="flex items-center gap-1 bg-red-50 border border-red-200 px-1.5 py-0.5 rounded-md" title={`${user.flags} fraud flags accumulated`}>
+                          <Flag className="w-3 h-3 text-red-500 fill-red-500" />
+                          <span className="text-[10px] text-red-600 font-bold">{user.flags}</span>
+                        </div>
+                      )}
                     </div>
                     <span className="text-xs text-gray-400 truncate block">{user.username}</span>
                   </div>
