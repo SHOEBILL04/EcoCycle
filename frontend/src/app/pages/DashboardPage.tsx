@@ -123,7 +123,6 @@ const categoryColorMap: Record<string, string> = {
 import { useState, useEffect } from "react";
 
 export function DashboardPage() {
-  const [stats, setStats] = useState<any>(null);
   const [submissions, setSubmissions] = useState<any[]>([]);
   const [clanAlerts, setClanAlerts] = useState<any[]>([]);
   const [data, setData] = useState<any>(null);
@@ -136,13 +135,11 @@ export function DashboardPage() {
     })
     .then(res => res.json())
     .then(data => {
-        setStats(data.stats);
         setSubmissions(data.recent_submissions);
         if (data.clan_alerts) {
             setClanAlerts(data.clan_alerts);
         }
-    .then(payload => {
-        setData(payload);
+        setData(data);
     })
     .catch(console.error);
   }, []);
@@ -450,7 +447,6 @@ export function DashboardPage() {
             </Link>
           </div>
           <div className="divide-y divide-gray-50">
-<<<<<<< fix/waste_identify_issue
             {submissions.length === 0 ? (
               <div className="p-8 text-center text-gray-400">
                   <Camera className="w-10 h-10 mx-auto mb-3 opacity-20" />
@@ -520,66 +516,6 @@ export function DashboardPage() {
                       </div>
                     );
                 })
-=======
-            {recent_submissions.length > 0 ? recent_submissions.map((sub: any) => (
-              <div
-                key={sub.id}
-                className="flex items-center gap-3 p-4 hover:bg-gray-50 transition-colors"
-              >
-                <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center text-xl flex-shrink-0">
-                  {sub.emoji}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-0.5">
-                    <span className="font-semibold text-gray-900 text-sm truncate">
-                      {sub.item}
-                    </span>
-                    <span
-                      className={`text-xs px-2 py-0.5 rounded-full font-medium ${categoryColorMap[sub.color]}`}
-                    >
-                      {sub.category}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-xs text-gray-400">{sub.id}</span>
-                    <div className="flex items-center gap-1">
-                      <div className="h-1 w-16 bg-gray-100 rounded-full overflow-hidden">
-                        <div
-                          className="h-full rounded-full"
-                          style={{
-                            width: `${sub.confidence * 100}%`,
-                            backgroundColor:
-                              sub.confidence >= 0.75 ? "#10b981" : "#f59e0b",
-                          }}
-                        ></div>
-                      </div>
-                      <span className="text-xs text-gray-400">
-                        {Math.round(sub.confidence * 100)}%
-                      </span>
-                    </div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3 flex-shrink-0">
-                  <div className="text-right">
-                    {sub.status === "approved" ? (
-                      <span className="text-sm font-bold text-emerald-600">
-                        +{sub.points}
-                      </span>
-                    ) : (
-                      <span className="text-xs font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full flex items-center gap-1">
-                        <AlertTriangle className="w-3 h-3" />
-                        {sub.status === 'dispute' ? 'Dispute' : 'Pending'}
-                      </span>
-                    )}
-                    <div className="text-xs text-gray-400 mt-0.5">{sub.time}</div>
-                  </div>
-                </div>
-              </div>
-            )) : (
-              <div className="p-6 text-center text-sm text-gray-400">
-                 No recent submissions found.
-              </div>
->>>>>>> main
             )}
           </div>
         </div>

@@ -127,16 +127,12 @@ class DashboardController extends Controller
                 'community_rank' => $rank,
                 'name' => $user->name,
             ],
-<<<<<<< fix/waste_identify_issue
             'recent_submissions' => $recentSubmissions,
             'clan_alerts' => $clanAlerts,
-=======
             'points_history' => $pointsHistory,
             'category_data' => $categoryData,
-            'recent_submissions' => $recentSubmissions,
             'leaderboard_nearby' => $nearbyUsers,
             'badges' => $badges,
->>>>>>> main
         ]);
     }
 }

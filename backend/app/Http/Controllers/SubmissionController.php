@@ -118,6 +118,7 @@ class SubmissionController extends Controller
             DB::commit();
         } catch (\Exception $e) {
             DB::rollBack();
+            \Illuminate\Support\Facades\Log::error('DB Error: ' . $e->getMessage());
             return response()->json(['error' => 'Database failure during submission creation.'], 500);
         }
 
@@ -196,6 +197,7 @@ class SubmissionController extends Controller
             DB::commit();
         } catch (\Exception $e) {
             DB::rollBack();
+            \Illuminate\Support\Facades\Log::error('DB Error: ' . $e->getMessage());
             return response()->json(['error' => 'Failed to resolve dispute or queue submission.'], 500);
         }
 
