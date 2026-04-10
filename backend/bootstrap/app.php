@@ -17,6 +17,9 @@ return Application::configure(basePath: dirname(__DIR__))
             'not.banned' => \App\Http\Middleware\EnsureNotBanned::class,
         ]);
         $middleware->statefulApi();
+        $middleware->validateCsrfTokens(except: [
+            'api/*',
+        ]);
         $middleware->redirectGuestsTo(fn (\Illuminate\Http\Request $request) => $request->is('api/*') ? null : route('login'));
     })
     ->withExceptions(function (Exceptions $exceptions): void {

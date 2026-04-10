@@ -163,7 +163,7 @@ export function AppLayout() {
         {(sidebarOpen || mobileSidebarOpen) && (
           <div>
             <h1 className="text-white font-bold text-lg leading-none">
-              EcoCycle
+              Eco Cycle
             </h1>
             <p className="text-emerald-400 text-xs">Waste Intelligence</p>
           </div>

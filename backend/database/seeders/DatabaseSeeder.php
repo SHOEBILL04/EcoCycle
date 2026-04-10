@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\User;
+use App\Models\Clan;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
@@ -15,13 +16,26 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // User::factory(10)->create();
+        // Create initial clans
+        $clans = [
+            ['name' => 'Eco Titans', 'rank_title' => 'Gold'],
+            ['name' => 'Green Guardians', 'rank_title' => 'Silver'],
+            ['name' => 'Recycle Rangers', 'rank_title' => 'Bronze'],
+        ];
 
+        foreach ($clans as $clan) {
+            Clan::firstOrCreate(['name' => $clan['name']], $clan);
+        }
+
+        $testClan = Clan::first();
+
+        // Create Users
         User::factory()->create([
             'name' => 'Admin User',
             'email' => 'admin@ecocycle.com',
             'password' => bcrypt('password'),
             'role' => 'admin',
+            'clan_id' => $testClan->id,
         ]);
 
         User::factory()->create([
@@ -29,6 +43,7 @@ class DatabaseSeeder extends Seeder
             'email' => 'moderator@ecocycle.com',
             'password' => bcrypt('password'),
             'role' => 'moderator',
+            'clan_id' => $testClan->id,
         ]);
 
         User::factory()->create([
@@ -36,6 +51,7 @@ class DatabaseSeeder extends Seeder
             'email' => 'test@example.com',
             'password' => bcrypt('password'),
             'role' => 'citizen',
+            'clan_id' => $testClan->id,
         ]);
     }
 }
