@@ -52,7 +52,11 @@ class WasteClassificationService
                 return $this->fallbackClassification();
             }
 
-            $result = json_decode($response->json()['candidates'][0]['content']['parts'][0]['text'] ?? '{}', true);
+            $responseText = $response->json()['candidates'][0]['content']['parts'][0]['text'] ?? '{}';
+            
+            // Strip markdown JSON blocks if present
+            $responseText = preg_replace('/^```json\s*|```$/', '', trim($responseText));
+            $result = json_decode($responseText, true);
             
             return [
                 'category'             => $result['category'] ?? 'recyclable',
