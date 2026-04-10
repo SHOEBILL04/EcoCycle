@@ -12,6 +12,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
 
     Route::get('/user', fn (Request $request) => $request->user());
+    Route::post('/user/password', [AuthController::class, 'updatePassword']);
+    Route::patch('/user/profile', [AuthController::class, 'updateProfile']);
+    Route::patch('/user/settings', [AuthController::class, 'updateSettings']);
 
     // ── Citizen-accessible ───────────────────────────────────────────────────
     Route::post('/submit-waste', [\App\Http\Controllers\SubmissionController::class, 'submit']);

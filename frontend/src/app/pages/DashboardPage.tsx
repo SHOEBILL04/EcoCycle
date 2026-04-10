@@ -27,22 +27,7 @@ import {
   Cell,
 } from "recharts";
 
-const pointsData = [
-  { date: "Apr 4", points: 120 },
-  { date: "Apr 5", points: 280 },
-  { date: "Apr 6", points: 195 },
-  { date: "Apr 7", points: 390 },
-  { date: "Apr 8", points: 320 },
-  { date: "Apr 9", points: 480 },
-  { date: "Apr 10", points: 560 },
-];
 
-const categoryData = [
-  { name: "Recyclable", value: 45, color: "#3b82f6" },
-  { name: "Organic", value: 28, color: "#22c55e" },
-  { name: "E-Waste", value: 16, color: "#8b5cf6" },
-  { name: "Hazardous", value: 11, color: "#ef4444" },
-];
 
 const recentSubmissions = [
   {
@@ -103,14 +88,7 @@ const recentSubmissions = [
 ];
 
 
-const badges = [
-  { emoji: "🌱", label: "First Submit", earned: true },
-  { emoji: "🔥", label: "7-Day Streak", earned: true },
-  { emoji: "♻️", label: "Recycling Pro", earned: true },
-  { emoji: "💯", label: "Perfect Week", earned: true },
-  { emoji: "🏆", label: "Top 100", earned: false },
-  { emoji: "⚡", label: "Speed Classifier", earned: false },
-];
+
 
 const categoryColorMap: Record<string, string> = {
   blue: "bg-blue-100 text-blue-700",
@@ -125,6 +103,10 @@ export function DashboardPage() {
   const [stats, setStats] = useState<any>(null);
   const [submissions, setSubmissions] = useState<any[]>([]);
   const [clanAlerts, setClanAlerts] = useState<any[]>([]);
+  const [pointsData, setPointsData] = useState<any[]>([]);
+  const [categoryData, setCategoryData] = useState<any[]>([]);
+  const [leaderboardNearby, setLeaderboardNearby] = useState<any[]>([]);
+  const [badgesList, setBadgesList] = useState<any[]>([]);
 
   useEffect(() => {
     fetch('http://localhost:8000/api/dashboard', {
@@ -136,6 +118,10 @@ export function DashboardPage() {
     .then(data => {
         setStats(data.stats);
         setSubmissions(data.recent_submissions);
+        setPointsData(data.points_data || []);
+        setCategoryData(data.category_data || []);
+        setLeaderboardNearby(data.leaderboard_nearby || []);
+        setBadgesList(data.badges || []);
         if (data.clan_alerts) {
             setClanAlerts(data.clan_alerts);
         }
@@ -170,7 +156,7 @@ export function DashboardPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">
-            Welcome back, Alex! 👋
+            Welcome back, {stats?.name ? stats.name.split(' ')[0] : '...'}! 👋
           </h1>
           <p className="text-gray-500 text-sm mt-0.5">
             Here's your eco-impact summary for today
@@ -337,37 +323,47 @@ export function DashboardPage() {
             <Activity className="w-4 h-4 text-gray-400" />
           </div>
           <ResponsiveContainer width="100%" height={140}>
-            <PieChart>
-              <Pie
-                data={categoryData}
-                cx="50%"
-                cy="50%"
-                innerRadius={40}
-                outerRadius={65}
-                paddingAngle={3}
-                dataKey="value"
-              >
-                {categoryData.map((entry, index) => (
-                  <Cell key={index} fill={entry.color} />
-                ))}
-              </Pie>
-            </PieChart>
+            {categoryData.length === 0 ? (
+                <div className="flex items-center justify-center h-full text-gray-300 text-xs italic">
+                    No classification data yet
+                </div>
+            ) : (
+                <PieChart>
+                  <Pie
+                    data={categoryData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={40}
+                    outerRadius={65}
+                    paddingAngle={3}
+                    dataKey="value"
+                  >
+                    {categoryData.map((entry, index) => (
+                      <Cell key={index} fill={entry.color} />
+                    ))}
+                  </Pie>
+                </PieChart>
+            )}
           </ResponsiveContainer>
           <div className="space-y-2 mt-2">
-            {categoryData.map((cat, i) => (
-              <div key={i} className="flex items-center justify-between text-sm">
-                <div className="flex items-center gap-2">
-                  <div
-                    className="w-2.5 h-2.5 rounded-full"
-                    style={{ backgroundColor: cat.color }}
-                  ></div>
-                  <span className="text-gray-600 text-xs">{cat.name}</span>
-                </div>
-                <span className="text-gray-900 font-semibold text-xs">
-                  {cat.value}%
-                </span>
-              </div>
-            ))}
+            {categoryData.length === 0 ? (
+                <p className="text-[10px] text-gray-400 text-center">Charts will populate after your first upload.</p>
+            ) : (
+                categoryData.map((cat, i) => (
+                  <div key={i} className="flex items-center justify-between text-sm">
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="w-2.5 h-2.5 rounded-full"
+                        style={{ backgroundColor: cat.color }}
+                      ></div>
+                      <span className="text-gray-600 text-xs">{cat.name}</span>
+                    </div>
+                    <span className="text-gray-900 font-semibold text-xs">
+                      {cat.value}
+                    </span>
+                  </div>
+                ))
+            )}
           </div>
         </div>
       </div>
@@ -470,7 +466,7 @@ export function DashboardPage() {
               <Star className="w-4 h-4 text-amber-400" />
             </div>
             <div className="grid grid-cols-3 gap-2">
-              {badges.map((badge, i) => (
+              {badgesList.map((badge, i) => (
                 <div
                   key={i}
                   className={`flex flex-col items-center gap-1 p-2.5 rounded-xl border text-center ${
@@ -493,10 +489,10 @@ export function DashboardPage() {
             <h2 className="font-bold mb-4">This Week</h2>
             <div className="space-y-3">
               {[
-                { label: "Submissions", val: "14", icon: Camera },
-                { label: "Points Earned", val: "960", icon: Leaf },
-                { label: "Disputes Won", val: "2", icon: CheckCircle },
-                { label: "Streak Days", val: "12", icon: Flame },
+                { label: "Submissions", val: stats?.classification_count || 0, icon: Camera },
+                { label: "Points Earned", val: stats?.total_points || 0, icon: Leaf },
+                { label: "Accuracy Rate", val: (stats?.accuracy_rate || 0) + "%", icon: Target },
+                { label: "Rank", val: "#" + (stats?.community_rank || 0), icon: Trophy },
               ].map((item, i) => (
                 <div key={i} className="flex items-center justify-between">
                   <div className="flex items-center gap-2 text-emerald-100">
@@ -516,31 +512,31 @@ export function DashboardPage() {
               <Trophy className="w-4 h-4 text-amber-400" />
             </div>
             <div className="space-y-2">
-              {[
-                { rank: 125, name: "EcoStar", pts: 2910, diff: -70 },
-                { rank: 127, name: "Alex Johnson", pts: 2840, isYou: true },
-                { rank: 128, name: "GreenPath", pts: 2780, diff: +60 },
-              ].map((u, i) => (
-                <div
-                  key={i}
-                  className={`flex items-center gap-2 p-2 rounded-xl text-sm ${u.isYou ? "bg-emerald-50 border border-emerald-200" : ""}`}
-                >
-                  <span className="w-8 text-xs text-gray-400 font-bold">
-                    #{u.rank}
-                  </span>
-                  <div className="w-7 h-7 rounded-full bg-gradient-to-br from-emerald-400 to-green-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
-                    {u.name.slice(0, 2).toUpperCase()}
-                  </div>
-                  <span
-                    className={`flex-1 text-xs ${u.isYou ? "font-bold text-emerald-700" : "text-gray-600"}`}
+              {leaderboardNearby.length === 0 ? (
+                  <p className="text-xs text-gray-400 italic text-center py-2">Leaderboard data incoming...</p>
+              ) : (
+                leaderboardNearby.map((u, i) => (
+                  <div
+                    key={i}
+                    className={`flex items-center gap-2 p-2 rounded-xl text-sm ${u.isMe ? "bg-emerald-50 border border-emerald-200" : ""}`}
                   >
-                    {u.name} {u.isYou && "(You)"}
-                  </span>
-                  <span className="text-xs font-bold text-gray-900">
-                    {u.pts.toLocaleString()}
-                  </span>
-                </div>
-              ))}
+                    <span className="w-8 text-xs text-gray-400 font-bold">
+                      #{u.rank}
+                    </span>
+                    <div className="w-7 h-7 rounded-full bg-gradient-to-br from-emerald-400 to-green-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                      {u.initial}
+                    </div>
+                    <span
+                      className={`flex-1 text-xs ${u.isMe ? "font-bold text-emerald-700" : "text-gray-600"}`}
+                    >
+                      {u.name} {u.isMe && "(You)"}
+                    </span>
+                    <span className="text-xs font-bold text-gray-900">
+                      {u.score}
+                    </span>
+                  </div>
+                ))
+              )}
             </div>
             <div className="grid grid-cols-2 gap-2 mt-3">
               <Link

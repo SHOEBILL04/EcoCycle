@@ -29,6 +29,10 @@ class User extends Authenticatable
         'role',
         'is_private',
         'flags',
+        'bio',
+        'location',
+        'website',
+        'settings',
     ];
 
     public function clan()
@@ -66,6 +70,32 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'settings' => 'array',
         ];
+    }
+
+    protected static function booted()
+    {
+        static::creating(function ($user) {
+            $user->settings = $user->settings ?? [
+                'privacy' => [
+                    'show_in_leaderboard' => true,
+                    'show_activity' => true,
+                    'allow_followers' => true,
+                    'show_accuracy_rate' => true,
+                    'show_points' => true,
+                ],
+                'notifications' => [
+                    'submission_results' => true,
+                    'dispute_updates' => true,
+                    'leaderboard_changes' => false,
+                    'new_followers' => true,
+                    'weekly_digest' => true,
+                    'reward_reminders' => false,
+                    'email_notifs' => true,
+                    'push_notifs' => false,
+                ]
+            ];
+        });
     }
 }
