@@ -98,16 +98,12 @@ const categoryColorMap: Record<string, string> = {
   gray: "bg-gray-100 text-gray-700",
 };
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 
 export function DashboardPage() {
   const [submissions, setSubmissions] = useState<any[]>([]);
   const [clanAlerts, setClanAlerts] = useState<any[]>([]);
   const [data, setData] = useState<any>(null);
-  const [quickFile, setQuickFile] = useState<File | null>(null);
-  const [quickMessage, setQuickMessage] = useState("");
-  const [quickSubmitting, setQuickSubmitting] = useState(false);
-  const quickInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const token = localStorage.getItem('access_token');
@@ -117,61 +113,17 @@ export function DashboardPage() {
         }
     })
     .then(res => res.json())
-    .then(payload => {
-        setData(payload);
-        if (payload.clan_alerts) {
-            setClanAlerts(payload.clan_alerts);
+    .then(data => {
+        setData(data);
+        if (data.recent_submissions) {
+            setSubmissions(data.recent_submissions);
         }
-        if (payload.recent_submissions) {
-            setSubmissions(payload.recent_submissions);
+        if (data.clan_alerts) {
+            setClanAlerts(data.clan_alerts);
         }
     })
     .catch(console.error);
   }, []);
-
-  const handleQuickSubmit = async () => {
-    if (!quickFile) {
-      setQuickMessage("Please choose an image first.");
-      return;
-    }
-
-    setQuickSubmitting(true);
-    setQuickMessage("");
-    try {
-      const token = localStorage.getItem('access_token');
-      const formData = new FormData();
-      formData.append('image', quickFile);
-
-      const res = await fetch('http://localhost:8000/api/submissions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Accept': 'application/json',
-        },
-        body: formData,
-      });
-
-      const payload = await res.json();
-      if (!res.ok) {
-        throw new Error(payload.error || payload.message || 'Submission failed');
-      }
-
-      if (payload.status === 'pending') {
-        setQuickMessage('Your image is under review by our moderators');
-      } else {
-        setQuickMessage(`Classified as ${payload.finalCategory}! You earned ${payload.pointsAwarded} points!`);
-      }
-
-      setQuickFile(null);
-      if (quickInputRef.current) {
-        quickInputRef.current.value = '';
-      }
-    } catch (error) {
-      setQuickMessage(error instanceof Error ? error.message : 'Submission failed');
-    } finally {
-      setQuickSubmitting(false);
-    }
-  };
 
   if (!data) {
     return (
@@ -268,33 +220,6 @@ export function DashboardPage() {
             Submit Waste
           </Link>
         </div>
-      </div>
-
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 mb-6">
-        <div className="flex flex-col lg:flex-row lg:items-center gap-3">
-          <div className="flex-1">
-            <p className="text-sm font-semibold text-gray-900 mb-1">Quick Image Submission</p>
-            <p className="text-xs text-gray-500">Upload directly from dashboard for instant AI classification.</p>
-          </div>
-          <input
-            ref={quickInputRef}
-            type="file"
-            accept="image/*"
-            onChange={(e) => setQuickFile(e.target.files?.[0] ?? null)}
-            className="text-sm"
-          />
-          <button
-            type="button"
-            onClick={() => handleQuickSubmit().catch(console.error)}
-            disabled={!quickFile || quickSubmitting}
-            className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {quickSubmitting ? 'Submitting...' : 'Submit'}
-          </button>
-        </div>
-        {quickMessage && (
-          <p className="mt-3 text-sm text-emerald-700">{quickMessage}</p>
-        )}
       </div>
 
       {/* Daily challenge banner */}

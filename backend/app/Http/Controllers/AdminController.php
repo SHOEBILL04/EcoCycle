@@ -231,6 +231,39 @@ class AdminController extends Controller
             'total_points_awarded' => clone DB::table('transactions')->where('type', 'reward')->sum('points'),
             'total_redeemed'       => clone DB::table('transactions')->where('type', 'redemption')->sum(DB::raw('ABS(points)')),
             'weekly_chart'         => $weeklyChart,
+            'current_threshold'    => (float) \Illuminate\Support\Facades\Cache::get('CONFIDENCE_THRESHOLD', 0.85),
         ]);
+    }
+
+    /**
+     * Update the global confidence threshold (accessed by Echo Engine and VisionNet)
+     */
+    public function updateThreshold(Request $request)
+    {
+        $request->validate([
+            'threshold' => 'required|numeric|min:0.1|max:1.0',
+        ]);
+
+        $admin = $request->user();
+        $oldThreshold = (float) \Illuminate\Support\Facades\Cache::get('CONFIDENCE_THRESHOLD', 0.85);
+        $newThreshold = (float) $request->threshold;
+
+        if ($oldThreshold !== $newThreshold) {
+            \Illuminate\Support\Facades\Cache::forever('CONFIDENCE_THRESHOLD', $newThreshold);
+
+            SystemAudit::create([
+                'event_type'  => 'CONFIG_CHANGED',
+                'user_id'     => $admin->id,
+                'description' => "Admin [{$admin->id}] updated CONFIDENCE_THRESHOLD from {$oldThreshold} to {$newThreshold}.",
+                'payload'     => [
+                    'changedBy'    => $admin->id,
+                    'oldThreshold' => $oldThreshold,
+                    'newThreshold' => $newThreshold,
+                    'timestamp'    => now()->toISOString(),
+                ],
+            ]);
+        }
+
+        return response()->json(['status' => 'success', 'threshold' => $newThreshold]);
     }
 }

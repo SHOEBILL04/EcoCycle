@@ -52,7 +52,7 @@ export function AdminPage() {
     confidenceThreshold: 0.85,
     fraudWindowMinutes: 1440,
     maxSubmissionsPerHour: 20,
-    defaultEngine: "dual",
+    defaultEngine: "echo_engine",
     requireEmailVerification: true,
     autoFlagDuplicates: true,
     leaderboardUpdateInterval: 60,
@@ -63,7 +63,12 @@ export function AdminPage() {
       .then(r => r.json()).then(d => setLiveUsers(d.data || [])).catch(console.error);
 
     fetch(`${API}/admin/system-stats`, { headers: authHeader() })
-      .then(r => r.json()).then(setSystemStats).catch(console.error);
+      .then(r => r.json()).then(d => {
+          setSystemStats(d);
+          if (d.current_threshold !== undefined) {
+              setConfig(c => ({ ...c, confidenceThreshold: d.current_threshold }));
+          }
+      }).catch(console.error);
 
     fetch(`${API}/admin/audit-trail`, { headers: authHeader() })
       .then(r => r.json()).then(d => setAuditLogs(d.data || [])).catch(console.error);
@@ -83,6 +88,18 @@ export function AdminPage() {
         const err = await res.json();
         alert('Role change failed: ' + (err.error || 'Unknown error'));
       }
+    } catch (e) { console.error(e); }
+  };
+
+  const handleUpdateThreshold = async () => {
+    try {
+      const res = await fetch(`${API}/admin/config/threshold`, {
+        method: 'PUT',
+        headers: authHeader(),
+        body: JSON.stringify({ threshold: config.confidenceThreshold }),
+      });
+      if (res.ok) alert('System Confidence Threshold updated successfully!');
+      else alert('Failed to update threshold. Ensure your account has Admin privileges.');
     } catch (e) { console.error(e); }
   };
 
@@ -214,8 +231,7 @@ export function AdminPage() {
                 </h2>
                 <div className="grid grid-cols-2 gap-3">
                   {[
-                    { engine: "VisionNet v3", accuracy: "93.2%", latency: "142ms", uses: "64%" },
-                    { engine: "EcoClassifier", accuracy: "94.8%", latency: "287ms", uses: "36%" },
+                    { engine: "Echo_engine", accuracy: "98.6%", latency: "245ms", uses: "100%" },
                   ].map((e, i) => (
                     <div key={i} className="bg-gray-50 rounded-xl p-3">
                       <div className="flex items-center gap-1.5 mb-2">
@@ -374,10 +390,16 @@ export function AdminPage() {
                 }
                 className="w-full accent-emerald-500"
               />
-              <div className="flex justify-between text-xs text-gray-400 mt-1">
+              <div className="flex justify-between text-xs text-gray-400 mt-1 mb-4">
                 <span>0.5 (Lenient)</span>
                 <span>0.95 (Strict)</span>
               </div>
+              <button 
+                onClick={handleUpdateThreshold}
+                className="w-full py-2 bg-emerald-100 text-emerald-700 hover:bg-emerald-200 rounded-xl font-semibold transition-colors text-sm"
+              >
+                Save Threshold Configuration
+              </button>
               <p className="text-xs text-gray-400 mt-2">
                 Submissions below this threshold enter dispute resolution before
                 any reward is issued.
@@ -390,9 +412,7 @@ export function AdminPage() {
               </label>
               <div className="space-y-2">
                 {[
-                  { id: "model-a", label: "VisionNet v3 (Fast)" },
-                  { id: "model-b", label: "EcoClassifier (Accurate)" },
-                  { id: "dual", label: "Dual Engine (Recommended)" },
+                  { id: "echo_engine", label: "Echo_engine (Teachable Machine + Gemini fallback)" },
                 ].map((e) => (
                   <label
                     key={e.id}

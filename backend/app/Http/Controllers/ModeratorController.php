@@ -198,7 +198,7 @@ class ModeratorController extends Controller
         // Return the secondary engine score already persisted at submission time
         $secondaryScore = $submission->secondary_confidence_score;
         $primaryScore   = $submission->confidence_score;
-        $threshold      = (float) env('CONFIDENCE_THRESHOLD', 0.85);
+        $threshold      = (float) \Illuminate\Support\Facades\Cache::get('CONFIDENCE_THRESHOLD', 0.85);
 
         $recommendation = $secondaryScore >= $threshold ? 'REWARDED' : 'NEEDS_MANUAL_REVIEW';
 
