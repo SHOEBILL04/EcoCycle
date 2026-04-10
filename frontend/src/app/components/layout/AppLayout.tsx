@@ -46,6 +46,7 @@ export function AppLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -272,11 +273,41 @@ export function AppLayout() {
             </div>
 
             {/* User avatar */}
-            <div className="flex items-center gap-2 cursor-pointer group">
-              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-emerald-400 to-green-600 flex items-center justify-center text-white font-bold text-sm">
-                AJ
-              </div>
-              <ChevronDown className="w-4 h-4 text-gray-400 group-hover:text-gray-600 hidden sm:block" />
+            <div className="relative">
+              <button 
+                onClick={() => setProfileOpen(!profileOpen)}
+                className="flex items-center gap-2 cursor-pointer group"
+              >
+                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-emerald-400 to-green-600 flex items-center justify-center text-white font-bold text-sm">
+                  AJ
+                </div>
+                <ChevronDown className="w-4 h-4 text-gray-400 group-hover:text-gray-600 hidden sm:block" />
+              </button>
+
+              {profileOpen && (
+                <div className="absolute right-0 top-12 w-48 bg-white rounded-2xl shadow-xl border border-gray-100 z-50 py-2">
+                  <Link
+                    to="/app/profile"
+                    onClick={() => setProfileOpen(false)}
+                    className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-emerald-50 hover:text-emerald-700 transition-colors"
+                  >
+                    <User className="w-4 h-4" />
+                    Your Profile
+                  </Link>
+                  <div className="h-px bg-gray-100 my-1"></div>
+                  <button
+                    onClick={() => {
+                        setProfileOpen(false);
+                        localStorage.removeItem('access_token');
+                        navigate('/login');
+                    }}
+                    className="flex w-full items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors font-medium"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    Logout
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </header>

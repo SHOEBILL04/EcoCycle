@@ -27,141 +27,18 @@ import {
   Cell,
 } from "recharts";
 
-const pointsData = [
-  { date: "Apr 4", points: 120 },
-  { date: "Apr 5", points: 280 },
-  { date: "Apr 6", points: 195 },
-  { date: "Apr 7", points: 390 },
-  { date: "Apr 8", points: 320 },
-  { date: "Apr 9", points: 480 },
-  { date: "Apr 10", points: 560 },
-];
-
-const categoryData = [
-  { name: "Recyclable", value: 45, color: "#3b82f6" },
-  { name: "Organic", value: 28, color: "#22c55e" },
-  { name: "E-Waste", value: 16, color: "#8b5cf6" },
-  { name: "Hazardous", value: 11, color: "#ef4444" },
-];
-
-const recentSubmissions = [
-  {
-    id: "SUB-4821",
-    item: "PET Plastic Bottle",
-    category: "Recyclable",
-    confidence: 0.94,
-    points: 15,
-    status: "approved",
-    time: "2 hours ago",
-    emoji: "♻️",
-    color: "blue",
-  },
-  {
-    id: "SUB-4820",
-    item: "Banana Peel",
-    category: "Organic",
-    confidence: 0.97,
-    points: 10,
-    status: "approved",
-    time: "5 hours ago",
-    emoji: "🌱",
-    color: "green",
-  },
-  {
-    id: "SUB-4819",
-    item: "Old Smartphone",
-    category: "E-Waste",
-    confidence: 0.61,
-    points: 0,
-    status: "dispute",
-    time: "8 hours ago",
-    emoji: "💻",
-    color: "purple",
-  },
-  {
-    id: "SUB-4818",
-    item: "Paint Can",
-    category: "Hazardous",
-    confidence: 0.88,
-    points: 20,
-    status: "approved",
-    time: "1 day ago",
-    emoji: "⚠️",
-    color: "red",
-  },
-  {
-    id: "SUB-4817",
-    item: "Cardboard Box",
-    category: "Recyclable",
-    confidence: 0.99,
-    points: 12,
-    status: "approved",
-    time: "1 day ago",
-    emoji: "♻️",
-    color: "blue",
-  },
-];
-
-const statCards = [
-  {
-    title: "Total Points",
-    value: "2,840",
-    change: "+480 today",
-    trend: "up",
-    icon: Leaf,
-    color: "emerald",
-    bg: "from-emerald-500 to-green-600",
-  },
-  {
-    title: "Submissions",
-    value: "148",
-    change: "+5 this week",
-    trend: "up",
-    icon: Camera,
-    color: "blue",
-    bg: "from-blue-500 to-blue-600",
-  },
-  {
-    title: "Accuracy Rate",
-    value: "91.3%",
-    change: "+2.1% vs last month",
-    trend: "up",
-    icon: Target,
-    color: "violet",
-    bg: "from-violet-500 to-purple-600",
-  },
-  {
-    title: "Global Rank",
-    value: "#127",
-    change: "↑ 23 positions",
-    trend: "up",
-    icon: Trophy,
-    color: "amber",
-    bg: "from-amber-500 to-orange-500",
-  },
-];
-
-const badges = [
-  { emoji: "🌱", label: "First Submit", earned: true },
-  { emoji: "🔥", label: "7-Day Streak", earned: true },
-  { emoji: "♻️", label: "Recycling Pro", earned: true },
-  { emoji: "💯", label: "Perfect Week", earned: true },
-  { emoji: "🏆", label: "Top 100", earned: false },
-  { emoji: "⚡", label: "Speed Classifier", earned: false },
-];
-
 const categoryColorMap: Record<string, string> = {
   blue: "bg-blue-100 text-blue-700",
   green: "bg-green-100 text-green-700",
   purple: "bg-purple-100 text-purple-700",
   red: "bg-red-100 text-red-700",
+  gray: "bg-gray-100 text-gray-700",
 };
 
 import { useState, useEffect } from "react";
 
 export function DashboardPage() {
-  const [stats, setStats] = useState<any>(null);
-  const [submissions, setSubmissions] = useState<any[]>([]);
+  const [data, setData] = useState<any>(null);
 
   useEffect(() => {
     fetch('http://localhost:8000/api/dashboard', {
@@ -170,12 +47,60 @@ export function DashboardPage() {
         }
     })
     .then(res => res.json())
-    .then(data => {
-        setStats(data.stats);
-        setSubmissions(data.recent_submissions);
+    .then(payload => {
+        setData(payload);
     })
     .catch(console.error);
   }, []);
+
+  if (!data) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500"></div>
+      </div>
+    );
+  }
+
+  const { stats, points_history, category_data, recent_submissions, leaderboard_nearby, badges } = data;
+
+  const statCards = [
+    {
+      title: "Total Points",
+      value: stats.total_points.toLocaleString(),
+      change: "Live updates",
+      trend: "up",
+      icon: Leaf,
+      color: "emerald",
+      bg: "from-emerald-500 to-green-600",
+    },
+    {
+      title: "Submissions",
+      value: stats.classification_count.toString(),
+      change: "All time",
+      trend: "up",
+      icon: Camera,
+      color: "blue",
+      bg: "from-blue-500 to-blue-600",
+    },
+    {
+      title: "Accuracy Rate",
+      value: `${stats.accuracy_rate}%`,
+      change: "Overall",
+      trend: "up",
+      icon: Target,
+      color: "violet",
+      bg: "from-violet-500 to-purple-600",
+    },
+    {
+      title: "Global Rank",
+      value: `#${stats.community_rank}`,
+      change: "Global standing",
+      trend: "up",
+      icon: Trophy,
+      color: "amber",
+      bg: "from-amber-500 to-orange-500",
+    },
+  ];
 
   return (
     <div className="p-4 lg:p-6 max-w-7xl mx-auto">
@@ -183,7 +108,7 @@ export function DashboardPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">
-            Welcome back, Alex! 👋
+            Welcome back, {stats.name}! 👋
           </h1>
           <p className="text-gray-500 text-sm mt-0.5">
             Here's your eco-impact summary for today
@@ -272,11 +197,11 @@ export function DashboardPage() {
             </div>
             <div className="flex items-center gap-1.5 text-xs font-medium text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-lg">
               <TrendingUp className="w-3.5 h-3.5" />
-              +34% this week
+              Overview
             </div>
           </div>
           <ResponsiveContainer width="100%" height={200}>
-            <AreaChart data={pointsData}>
+            <AreaChart data={points_history.reverse()}>
               <defs>
                 <linearGradient id="pointsGrad" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
@@ -320,39 +245,48 @@ export function DashboardPage() {
             <h2 className="font-bold text-gray-900">Categories</h2>
             <Activity className="w-4 h-4 text-gray-400" />
           </div>
-          <ResponsiveContainer width="100%" height={140}>
-            <PieChart>
-              <Pie
-                data={categoryData}
-                cx="50%"
-                cy="50%"
-                innerRadius={40}
-                outerRadius={65}
-                paddingAngle={3}
-                dataKey="value"
-              >
-                {categoryData.map((entry, index) => (
-                  <Cell key={index} fill={entry.color} />
+          
+          {category_data.length > 0 ? (
+            <>
+              <ResponsiveContainer width="100%" height={140}>
+                <PieChart>
+                  <Pie
+                    data={category_data}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={40}
+                    outerRadius={65}
+                    paddingAngle={3}
+                    dataKey="value"
+                  >
+                    {category_data.map((entry: any, index: number) => (
+                      <Cell key={index} fill={entry.color} />
+                    ))}
+                  </Pie>
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="space-y-2 mt-2">
+                {category_data.map((cat: any, i: number) => (
+                  <div key={i} className="flex items-center justify-between text-sm">
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="w-2.5 h-2.5 rounded-full"
+                        style={{ backgroundColor: cat.color }}
+                      ></div>
+                      <span className="text-gray-600 text-xs">{cat.name}</span>
+                    </div>
+                    <span className="text-gray-900 font-semibold text-xs">
+                      {cat.value}%
+                    </span>
+                  </div>
                 ))}
-              </Pie>
-            </PieChart>
-          </ResponsiveContainer>
-          <div className="space-y-2 mt-2">
-            {categoryData.map((cat, i) => (
-              <div key={i} className="flex items-center justify-between text-sm">
-                <div className="flex items-center gap-2">
-                  <div
-                    className="w-2.5 h-2.5 rounded-full"
-                    style={{ backgroundColor: cat.color }}
-                  ></div>
-                  <span className="text-gray-600 text-xs">{cat.name}</span>
-                </div>
-                <span className="text-gray-900 font-semibold text-xs">
-                  {cat.value}%
-                </span>
               </div>
-            ))}
-          </div>
+            </>
+          ) : (
+            <div className="flex items-center justify-center h-[200px] text-gray-400 text-sm">
+               No submissions yet
+            </div>
+          )}
         </div>
       </div>
 
@@ -372,7 +306,7 @@ export function DashboardPage() {
             </Link>
           </div>
           <div className="divide-y divide-gray-50">
-            {recentSubmissions.map((sub) => (
+            {recent_submissions.length > 0 ? recent_submissions.map((sub: any) => (
               <div
                 key={sub.id}
                 className="flex items-center gap-3 p-4 hover:bg-gray-50 transition-colors"
@@ -419,14 +353,18 @@ export function DashboardPage() {
                     ) : (
                       <span className="text-xs font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full flex items-center gap-1">
                         <AlertTriangle className="w-3 h-3" />
-                        Dispute
+                        {sub.status === 'dispute' ? 'Dispute' : 'Pending'}
                       </span>
                     )}
                     <div className="text-xs text-gray-400 mt-0.5">{sub.time}</div>
                   </div>
                 </div>
               </div>
-            ))}
+            )) : (
+              <div className="p-6 text-center text-sm text-gray-400">
+                 No recent submissions found.
+              </div>
+            )}
           </div>
         </div>
 
@@ -438,8 +376,8 @@ export function DashboardPage() {
               <h2 className="font-bold text-gray-900">Badges</h2>
               <Star className="w-4 h-4 text-amber-400" />
             </div>
-            <div className="grid grid-cols-3 gap-2">
-              {badges.map((badge, i) => (
+            <div className="grid grid-cols-2 gap-2">
+              {badges.map((badge: any, i: number) => (
                 <div
                   key={i}
                   className={`flex flex-col items-center gap-1 p-2.5 rounded-xl border text-center ${
@@ -459,13 +397,13 @@ export function DashboardPage() {
 
           {/* Quick stats */}
           <div className="bg-gradient-to-br from-emerald-500 to-green-600 rounded-2xl p-5 text-white">
-            <h2 className="font-bold mb-4">This Week</h2>
+            <h2 className="font-bold mb-4">Overview</h2>
             <div className="space-y-3">
               {[
-                { label: "Submissions", val: "14", icon: Camera },
-                { label: "Points Earned", val: "960", icon: Leaf },
-                { label: "Disputes Won", val: "2", icon: CheckCircle },
-                { label: "Streak Days", val: "12", icon: Flame },
+                { label: "Submissions", val: stats.classification_count, icon: Camera },
+                { label: "Points Earned", val: stats.total_points, icon: Leaf },
+                { label: "Community Rank", val: stats.community_rank, icon: CheckCircle },
+                { label: "Accuracy", val: stats.accuracy_rate + "%", icon: Flame },
               ].map((item, i) => (
                 <div key={i} className="flex items-center justify-between">
                   <div className="flex items-center gap-2 text-emerald-100">
@@ -485,11 +423,7 @@ export function DashboardPage() {
               <Trophy className="w-4 h-4 text-amber-400" />
             </div>
             <div className="space-y-2">
-              {[
-                { rank: 125, name: "EcoStar", pts: 2910, diff: -70 },
-                { rank: 127, name: "Alex Johnson", pts: 2840, isYou: true },
-                { rank: 128, name: "GreenPath", pts: 2780, diff: +60 },
-              ].map((u, i) => (
+              {leaderboard_nearby.map((u: any, i: number) => (
                 <div
                   key={i}
                   className={`flex items-center gap-2 p-2 rounded-xl text-sm ${u.isYou ? "bg-emerald-50 border border-emerald-200" : ""}`}
