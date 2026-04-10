@@ -4,8 +4,10 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\Submission;
+use App\Models\Notification;
 use App\Models\SystemAudit;
 use App\Models\Transaction;
+use App\Models\User;
 use App\Services\RewardEngineService;
 use App\Services\WasteClassificationService;
 use Illuminate\Support\Facades\DB;
@@ -17,6 +19,13 @@ class ModeratorController extends Controller
         protected WasteClassificationService $classifier,
     ) {}
 
+    private const POINTS_BY_CATEGORY = [
+        'recyclable' => 10,
+        'organic' => 8,
+        'e-waste' => 15,
+        'hazardous' => 20,
+    ];
+
     /**
      * List all PENDING disputes for the moderator queue.
      * Includes both engine scores so the moderator has full context.
@@ -26,9 +35,83 @@ class ModeratorController extends Controller
         $disputes = Submission::with('user:id,name')
             ->where('status', 'PENDING')
             ->orderBy('created_at', 'asc')
-            ->get();
+            ->get()
+            ->map(function ($submission) {
+                return [
+                    'id' => $submission->id,
+                    'imageUrl' => $submission->image_url,
+                    'aiConfidenceScores' => $submission->ai_confidence_scores,
+                    'createdAt' => $submission->created_at,
+                    'submittedBy' => $submission->user?->name,
+                ];
+            });
 
-        return response()->json(['disputes' => $disputes]);
+        return response()->json($disputes);
+    }
+
+    public function verdict(Request $request, $id)
+    {
+        $request->validate([
+            'category' => 'required|in:recyclable,organic,e-waste,hazardous',
+        ]);
+
+        $moderator = $request->user();
+        $category = $request->input('category');
+        $points = self::POINTS_BY_CATEGORY[$category];
+
+        DB::beginTransaction();
+        try {
+            $submission = Submission::with('user')
+                ->where('id', $id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            if ($submission->status !== 'PENDING') {
+                DB::rollBack();
+                return response()->json(['error' => 'Already resolved'], 409);
+            }
+
+            $submission->status = 'RESOLVED';
+            $submission->final_category = $category;
+            $submission->final_confidence = 0.80;
+            $submission->resolved_by = $moderator->id;
+            $submission->resolved_at = now();
+            $submission->save();
+
+            $pointsAwarded = $this->awardPointsOnce($submission, $submission->user, $category, $points);
+
+            Notification::create([
+                'user_id' => $submission->user_id,
+                'message' => "Your submission has been reviewed. It was classified as {$category}. You earned {$pointsAwarded} points!",
+                'type' => 'dispute_resolved',
+                'submission_id' => $submission->id,
+                'is_read' => false,
+            ]);
+
+            SystemAudit::create([
+                'event_type' => 'DISPUTE_RESOLVED',
+                'user_id' => $moderator->id,
+                'description' => "Submission #{$submission->id} resolved by moderator #{$moderator->id} as {$category}.",
+                'payload' => [
+                    'submissionId' => $submission->id,
+                    'moderatorId' => $moderator->id,
+                    'finalCategory' => $category,
+                    'pointsAwarded' => $pointsAwarded,
+                    'timestamp' => now()->toISOString(),
+                ],
+            ]);
+
+            DB::commit();
+
+            return response()->json([
+                'finalCategory' => $category,
+                'pointsAwarded' => $pointsAwarded,
+                'resolvedBy' => $moderator->id,
+            ]);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json(['error' => 'Verdict submission failed.'], 500);
+        }
     }
 
     /**
@@ -167,5 +250,31 @@ class ModeratorController extends Controller
             'status'        => $submission->status,
             'audit_trail'   => $audits,
         ]);
+    }
+
+    private function awardPointsOnce(Submission $submission, User $user, string $category, int $points): int
+    {
+        $existing = Transaction::where('submission_id', $submission->id)
+            ->where('type', 'reward')
+            ->first();
+
+        if ($existing) {
+            return 0;
+        }
+
+        Transaction::create([
+            'user_id' => $user->id,
+            'submission_id' => $submission->id,
+            'points' => $points,
+            'type' => 'reward',
+            'description' => "Points for {$category} moderator verdict",
+        ]);
+
+        $user->increment('total_points', $points);
+
+        $submission->points_awarded = $points;
+        $submission->save();
+
+        return $points;
     }
 }

@@ -88,6 +88,9 @@ export function SignUpPage() {
         if (response.ok) {
            const data = await response.json();
            localStorage.setItem('access_token', data.access_token);
+            localStorage.setItem('role', data.role ?? data.user?.role ?? 'citizen');
+            localStorage.setItem('user_id', String(data.user?.id ?? ''));
+            localStorage.setItem('user_email', data.user?.email ?? '');
            navigate("/app");
         } else {
            const err = await response.json();

@@ -29,6 +29,8 @@ class User extends Authenticatable
         'total_points',
         'user_title',
         'role',
+        'is_banned',
+        'banned_at',
         'is_private',
         'flags',
         'bio',
@@ -52,6 +54,11 @@ class User extends Authenticatable
         return $this->hasMany(SystemAudit::class);
     }
 
+    public function notifications()
+    {
+        return $this->hasMany(Notification::class);
+    }
+
     /**
      * The attributes that should be hidden for serialization.
      *
@@ -72,6 +79,7 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'banned_at' => 'datetime',
             'settings' => 'array',
         ];
     }
