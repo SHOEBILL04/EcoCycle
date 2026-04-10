@@ -30,7 +30,7 @@ type UserProfile = {
   clan?: { id: number; name: string } | null;
 };
 
-const API = "http://localhost:8000/api";
+const API = import.meta.env.VITE_API_URL;
 
 const roleBadgeClasses: Record<AdminUser["role"], string> = {
   citizen: "bg-blue-100 text-blue-700",

@@ -39,7 +39,7 @@ const roleColors: Record<string, string> = {
   admin: "bg-amber-100 text-amber-700",
 };
 
-const API = 'http://localhost:8000/api';
+const API = import.meta.env.VITE_API_URL;
 const authHeader = () => ({ 'Authorization': `Bearer ${localStorage.getItem('access_token')}`, 'Content-Type': 'application/json' });
 
 export function AdminPage() {
@@ -208,20 +208,25 @@ export function AdminPage() {
                 </h2>
                 <div className="space-y-3">
                   {[
-                    { role: "Citizens", count: 50387, pct: 99.8, color: "bg-blue-500" },
-                    { role: "Moderators", count: 28, pct: 0.06, color: "bg-purple-500" },
-                    { role: "Administrators", count: 6, pct: 0.01, color: "bg-amber-500" },
-                  ].map((r, i) => (
-                    <div key={i}>
-                      <div className="flex justify-between text-sm mb-1">
-                        <span className="text-gray-600">{r.role}</span>
-                        <span className="font-semibold text-gray-900">{r.count.toLocaleString()}</span>
+                    { role: "Citizens", key: "citizen", color: "bg-blue-500" },
+                    { role: "Moderators", key: "moderator", color: "bg-purple-500" },
+                    { role: "Administrators", key: "admin", color: "bg-amber-500" },
+                  ].map((r, i) => {
+                    const count = Number(systemStats?.user_role_breakdown?.[r.key]?.total || 0);
+                    const totalUsers = Object.values(systemStats?.user_role_breakdown || {}).reduce((sum: number, role: any) => sum + Number(role.total), 0);
+                    const pct = totalUsers > 0 ? (count / totalUsers) * 100 : 0;
+                    return (
+                      <div key={i}>
+                        <div className="flex justify-between text-sm mb-1">
+                          <span className="text-gray-600">{r.role}</span>
+                          <span className="font-semibold text-gray-900">{count.toLocaleString()}</span>
+                        </div>
+                        <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                          <div className={`h-full ${r.color} rounded-full`} style={{ width: `${Math.max(pct, 1)}%` }}></div>
+                        </div>
                       </div>
-                      <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                        <div className={`h-full ${r.color} rounded-full`} style={{ width: `${Math.max(r.pct, 1)}%` }}></div>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
 

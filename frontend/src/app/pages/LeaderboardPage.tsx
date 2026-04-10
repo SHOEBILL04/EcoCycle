@@ -498,7 +498,7 @@ export function LeaderboardPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("http://localhost:8000/api/leaderboard", {
+    fetch(`${import.meta.env.VITE_API_URL}/leaderboard`, {
       headers: {
         Authorization: `Bearer ${localStorage.getItem("access_token")}`,
       },

@@ -15,7 +15,7 @@ type DisputeItem = {
   submittedBy: string;
 };
 
-const API = "http://localhost:8000/api";
+const API = import.meta.env.VITE_API_URL;
 
 const categories: Array<keyof ScoreMap> = ["recyclable", "organic", "e-waste", "hazardous"];
 

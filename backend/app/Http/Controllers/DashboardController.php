@@ -19,174 +19,140 @@ class DashboardController extends Controller
         $accuracyRate = $totalSubmissions > 0 ? round(($rewardedSubmissions / $totalSubmissions) * 100, 1) : 0;
         
         $rank = User::where('total_points', '>', $user->total_points)->count() + 1;
+
+        // Calculate Disputes Won (Simulated for now based on REWARDED status if it required fallback or moderator)
+        $disputesWon = Submission::where('user_id', $user->id)
+            ->where('status', 'REWARDED')
+            ->where('confidence_score', '<', (float) Cache::get('CONFIDENCE_THRESHOLD', 0.85))
+            ->count();
+
+        // Calculate Streak (Consecutive days with at least one submission)
+        $streak = 0;
+        $checkDate = Carbon::today();
+        while (Submission::where('user_id', $user->id)->whereDate('created_at', $checkDate)->exists()) {
+            $streak++;
+            $checkDate->subDay();
+        }
         
-        $recentSubmissionsQuery = Submission::with('transactions')->where('user_id', $user->id)
+        // 1. Recent Submissions
+        $recentSubmissions = Submission::with('transactions')->where('user_id', $user->id)
             ->orderBy('created_at', 'desc')
             ->take(5)
-            ->get();
-            
-        $recentSubmissions = $recentSubmissionsQuery->map(function ($sub) {
-            $statusStr = $sub->status === 'REWARDED' ? 'approved' : ($sub->status === 'DISPUTED' ? 'dispute' : 'pending');
-            $color = match($sub->category) {
-                'Recyclable' => 'blue',
-                'Organic' => 'green',
-                'E-Waste' => 'purple',
-                'Hazardous' => 'red',
-                default => 'gray'
-            };
-            $emoji = match($sub->category) {
-                'Recyclable' => '♻️',
-                'Organic' => '🌱',
-                'E-Waste' => '💻',
-                'Hazardous' => '⚠️',
-                default => '📦'
-            };
-            $points = $sub->transactions->sum('points') ?? 0;
-            return [
-                'id' => 'SUB-' . $sub->id,
-                'item' => $sub->subcategory ?? $sub->category,
-                'category' => $sub->category,
-                'confidence' => ($sub->confidence_score ?? 0) / 100,
-                'points' => $points,
-                'status' => $statusStr,
-                'time' => $sub->created_at->diffForHumans(),
-                'emoji' => $emoji,
-                'color' => $color,
-            ];
-        });
+            ->get()
+            ->map(function ($sub) {
+                $statusStr = match($sub->status) {
+                    'REWARDED' => 'approved',
+                    'PENDING'  => 'pending',
+                    'FLAGGED', 'REJECTED' => 'flagged',
+                    default => 'pending'
+                };
+                $color = match($sub->category) {
+                    'recyclable' => 'blue',
+                    'organic'    => 'green',
+                    'e-waste'    => 'purple',
+                    'hazardous'  => 'red',
+                    default      => 'gray'
+                };
+                $emoji = match($sub->category) {
+                    'recyclable' => '♻️',
+                    'organic'    => '🌱',
+                    'e-waste'    => '💻',
+                    'hazardous'  => '⚠️',
+                    default      => '📦'
+                };
+                $points = $sub->transactions->where('type', 'reward')->sum('points') ?? 0;
+                return [
+                    'id' => 'SUB-' . $sub->id,
+                    'item' => $sub->subcategory ?? $sub->category,
+                    'category' => $sub->category,
+                    'confidence' => ($sub->confidence_score ?? 0),
+                    'points' => $points,
+                    'status' => $statusStr,
+                    'time' => $sub->created_at->diffForHumans(),
+                    'emoji' => $emoji,
+                    'color' => $color,
+                ];
+            });
 
+        // 2. Points History (Last 7 Days)
         $pointsHistory = [];
         for ($i = 6; $i >= 0; $i--) {
             $date = Carbon::now()->subDays($i);
             $pointsForDay = Transaction::where('user_id', $user->id)
+                ->where('type', 'reward')
                 ->whereDate('created_at', $date->toDateString())
                 ->sum('points');
             
             $pointsHistory[] = [
+                'day' => $date->format('D'),
                 'date' => $date->format('M j'),
-                'points' => $pointsForDay
+                'points' => (int) $pointsForDay
             ];
         }
 
+        // 3. Category Data
         $categoryCounts = Submission::where('user_id', $user->id)
+            ->where('status', 'REWARDED')
             ->selectRaw('category, count(*) as count')
             ->groupBy('category')
             ->get();
             
         $colorMap = [
-            'Recyclable' => '#3b82f6',
-            'Organic' => '#22c55e',
-            'E-Waste' => '#8b5cf6',
-            'Hazardous' => '#ef4444'
+            'recyclable' => '#3b82f6',
+            'organic'    => '#22c55e',
+            'e-waste'    => '#8b5cf6',
+            'hazardous'  => '#ef4444'
         ];
         
-        $categoryData = $categoryCounts->map(function ($cat) use ($totalSubmissions, $colorMap) {
-            $val = $totalSubmissions > 0 ? round(($cat->count / $totalSubmissions) * 100) : 0;
+        $categoryData = $categoryCounts->map(function ($cat) use ($rewardedSubmissions, $colorMap) {
+            $val = $rewardedSubmissions > 0 ? round(($cat->count / $rewardedSubmissions) * 100) : 0;
             return [
-                'name' => $cat->category,
+                'name' => ucfirst($cat->category),
                 'value' => $val,
+                'count' => $cat->count,
                 'color' => $colorMap[$cat->category] ?? '#94a3b8'
             ];
         });
 
-        $nearbyUsers = User::whereBetween('total_points', [max(0, $user->total_points - 500), $user->total_points + 500])
+        // 4. Leaderboard Nearby
+        $nearbyUsers = User::where('is_banned', false)
+            ->whereBetween('total_points', [max(0, $user->total_points - 1000), $user->total_points + 1000])
             ->orderBy('total_points', 'desc')
             ->take(5)
             ->get()
-            ->map(function ($u) use ($user) {
+            ->map(function ($u) {
                 $theirRank = User::where('total_points', '>', $u->total_points)->count() + 1;
                 return [
                     'rank' => $theirRank,
                     'name' => $u->name,
-                    'pts' => $u->total_points,
-                    'isYou' => $u->id === $user->id
+                    'score' => number_format($u->total_points) . ' pts',
+                    'initial' => strtoupper(substr($u->name, 0, 2)),
+                    'isMe' => $u->id === auth()->id()
                 ];
             });
             
+        // 5. Badges & Challenges
         $badges = [
             ['emoji' => '🌱', 'label' => 'First Submit', 'earned' => $totalSubmissions > 0],
-            ['emoji' => '♻️', 'label' => 'Recycling Pro', 'earned' => $totalSubmissions >= 10],
-            ['emoji' => '🔥', 'label' => 'Active Citizen', 'earned' => $accuracyRate > 90 && $totalSubmissions > 5],
+            ['emoji' => '🔥', 'label' => 'Active Citizen', 'earned' => $rewardedSubmissions >= 5],
+            ['emoji' => '♻️', 'label' => 'Eco Expert', 'earned' => $rewardedSubmissions >= 20 || $user->total_points >= 200],
             ['emoji' => '💯', 'label' => 'Top 100', 'earned' => $rank <= 100],
+        ];
+
+        $challenges = [
+            ['title' => 'Eco Hero', 'desc' => '100 total submissions', 'progress' => min(100, round(($totalSubmissions / 100) * 100)), 'color' => 'bg-emerald-500'],
+            ['title' => 'Plastic Ninja', 'desc' => '50 recyclable items', 'progress' => min(100, round((Submission::where('user_id', $user->id)->where('category', 'recyclable')->count() / 50) * 100)), 'color' => 'bg-blue-500'],
+            ['title' => 'Dispute Master', 'desc' => '5 disputes won', 'progress' => min(100, round(($disputesWon / 5) * 100)), 'color' => 'bg-amber-500'],
         ];
 
         $clanAlerts = [];
         if ($user->clan_id) {
             $clanAlerts = User::where('clan_id', $user->clan_id)
-                ->where('flags', '>=', 4)
+                ->where('flags', '>=', 3)
                 ->where('id', '!=', $user->id)
                 ->select('id', 'name', 'flags')
                 ->get();
         }
-
-        // 1. Points over the last 7 days
-        $pointsData = [];
-        for ($i = 6; $i >= 0; $i--) {
-            $date = \Carbon\Carbon::today()->subDays($i);
-            $count = Submission::where('user_id', $user->id)
-                ->whereDate('created_at', $date)
-                ->where('status', 'REWARDED')
-                ->count();
-            $pointsData[] = [
-                'day' => $date->format('D'),
-                'points' => $count * 12 // Simulated approx 12 pts per submission for visually pleasing chart
-            ];
-        }
-
-        // 2. Categories Distribution
-        $dbCategories = Submission::where('user_id', $user->id)
-            ->selectRaw('category, COUNT(*) as count')
-            ->groupBy('category')
-            ->get();
-            
-        $categoryData = [];
-        $colors = ['recyclable' => '#3b82f6', 'organic' => '#10b981', 'e-waste' => '#8b5cf6', 'hazardous' => '#ef4444'];
-        foreach ($dbCategories as $cat) {
-            if (!$cat->category) continue;
-            $categoryData[] = [
-                'name' => ucfirst($cat->category),
-                'value' => $cat->count,
-                'color' => $colors[$cat->category] ?? '#9ca3af'
-            ];
-        }
-
-        // 3. Nearby Leaderboard
-        $leaderboardNearby = [];
-        $nearbyAbove = User::where('total_points', '>', $user->total_points)->orderBy('total_points', 'asc')->first();
-        $nearbyBelow = User::where('total_points', '<=', $user->total_points)->where('id', '!=', $user->id)->orderBy('total_points', 'desc')->first();
-
-        if ($nearbyAbove) {
-            $leaderboardNearby[] = [
-                'rank' => $rank - 1,
-                'name' => $nearbyAbove->name,
-                'score' => number_format($nearbyAbove->total_points) . ' pts',
-                'initial' => strtoupper(substr($nearbyAbove->name, 0, 2)),
-                'isMe' => false
-            ];
-        }
-        $leaderboardNearby[] = [
-            'rank' => $rank,
-            'name' => $user->name,
-            'score' => number_format($user->total_points) . ' pts',
-            'initial' => strtoupper(substr($user->name, 0, 2)),
-            'isMe' => true
-        ];
-        if ($nearbyBelow) {
-            $leaderboardNearby[] = [
-                'rank' => $rank + 1,
-                'name' => $nearbyBelow->name,
-                'score' => number_format($nearbyBelow->total_points) . ' pts',
-                'initial' => strtoupper(substr($nearbyBelow->name, 0, 2)),
-                'isMe' => false
-            ];
-        }
-
-        // 4. Badges
-        $badges = [
-            [ 'emoji' => '🌱', 'label' => 'First Submit', 'earned' => $totalSubmissions >= 1 ],
-            [ 'emoji' => '🔥', 'label' => 'Active Citizen', 'earned' => $totalSubmissions >= 5 ],
-            [ 'emoji' => '♻️', 'label' => 'Eco Pro', 'earned' => $user->total_points >= 100 ],
-        ];
 
         return response()->json([
             'stats' => [
@@ -195,14 +161,16 @@ class DashboardController extends Controller
                 'classification_count' => $totalSubmissions,
                 'accuracy_rate' => $accuracyRate,
                 'community_rank' => $rank,
+                'streak' => $streak,
+                'disputes_won' => $disputesWon,
             ],
             'recent_submissions' => $recentSubmissions,
             'clan_alerts' => $clanAlerts,
             'points_history' => $pointsHistory,
             'category_data' => $categoryData,
-            'leaderboard_nearby' => $leaderboardNearby,
             'leaderboard_nearby' => $nearbyUsers,
             'badges' => $badges,
+            'challenges' => $challenges,
         ]);
     }
 }

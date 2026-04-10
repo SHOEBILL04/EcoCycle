@@ -52,7 +52,7 @@ export function ActivityFeedPage() {
   const [trending, setTrending] = useState<any[]>([]);
 
   useEffect(() => {
-    fetch('http://localhost:8000/api/feed', {
+    fetch(`${import.meta.env.VITE_API_URL}/feed`, {
       headers: { 'Authorization': `Bearer ${localStorage.getItem('access_token')}` }
     })
     .then(res => res.json())

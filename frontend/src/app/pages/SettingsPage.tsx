@@ -62,7 +62,7 @@ export function SettingsPage() {
   });
 
   useEffect(() => {
-    fetch('http://localhost:8000/api/user', {
+    fetch(`${import.meta.env.VITE_API_URL}/user`, {
         headers: { 'Authorization': `Bearer ${localStorage.getItem('access_token')}` }
     })
     .then(res => res.json())
@@ -111,7 +111,7 @@ export function SettingsPage() {
 
   const handleProfileSave = async () => {
     try {
-        const res = await fetch('http://localhost:8000/api/user/profile', {
+        const res = await fetch(`${import.meta.env.VITE_API_URL}/user/profile`, {
             method: 'PATCH',
             headers: {
                 'Content-Type': 'application/json',
@@ -135,7 +135,7 @@ export function SettingsPage() {
 
   const handlePrivacySave = async () => {
     try {
-        const res = await fetch('http://localhost:8000/api/user/settings', {
+        const res = await fetch(`${import.meta.env.VITE_API_URL}/user/settings`, {
             method: 'PATCH',
             headers: {
                 'Content-Type': 'application/json',
@@ -154,7 +154,7 @@ export function SettingsPage() {
 
   const handleNotifSave = async () => {
     try {
-        const res = await fetch('http://localhost:8000/api/user/settings', {
+        const res = await fetch(`${import.meta.env.VITE_API_URL}/user/settings`, {
             method: 'PATCH',
             headers: {
                 'Content-Type': 'application/json',
@@ -192,7 +192,7 @@ export function SettingsPage() {
     setPassLoading(true);
 
     try {
-      const res = await fetch("http://localhost:8000/api/user/password", {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/user/password`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

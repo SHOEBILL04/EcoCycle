@@ -48,7 +48,7 @@ export function AppLayout() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    fetch('http://localhost:8000/api/user', {
+    fetch(`${import.meta.env.VITE_API_URL}/user`, {
         headers: {
             'Authorization': `Bearer ${localStorage.getItem('access_token')}`
         }
@@ -71,7 +71,7 @@ export function AppLayout() {
     })
     .catch(console.error);
 
-    fetch('http://localhost:8000/api/notifications', {
+    fetch(`${import.meta.env.VITE_API_URL}/notifications`, {
         headers: {
             'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
             'Accept': 'application/json'
@@ -88,7 +88,7 @@ export function AppLayout() {
 
   const markNotificationRead = async (notificationId: number) => {
     try {
-      await fetch(`http://localhost:8000/api/notifications/${notificationId}/read`, {
+      await fetch(`${import.meta.env.VITE_API_URL}/notifications/${notificationId}/read`, {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('access_token')}`,

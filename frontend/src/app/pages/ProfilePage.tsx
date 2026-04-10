@@ -53,16 +53,18 @@ export function ProfilePage() {
   const [radarData, setRadarData] = useState<any[]>([]);
   const [activityData, setActivityData] = useState<any[]>([]);
   const [badges, setBadges] = useState<any[]>([]);
+  const [categoryBreakdown, setCategoryBreakdown] = useState<any[]>([]);
+  const [keyMetrics, setKeyMetrics] = useState<any[]>([]);
 
   useEffect(() => {
-    fetch('http://localhost:8000/api/user', {
+    fetch(`${import.meta.env.VITE_API_URL}/user`, {
         headers: { 'Authorization': `Bearer ${localStorage.getItem('access_token')}` }
     })
     .then(res => res.json())
     .then(data => { if (data.id) setUser(data); })
     .catch(console.error);
 
-    fetch('http://localhost:8000/api/dashboard', {
+    fetch(`${import.meta.env.VITE_API_URL}/dashboard`, {
         headers: { 'Authorization': `Bearer ${localStorage.getItem('access_token')}` }
     })
     .then(res => res.json())
@@ -72,7 +74,7 @@ export function ProfilePage() {
     })
     .catch(console.error);
 
-    fetch('http://localhost:8000/api/leaderboard', {
+    fetch(`${import.meta.env.VITE_API_URL}/leaderboard`, {
         headers: { 'Authorization': `Bearer ${localStorage.getItem('access_token')}` }
     })
     .then(res => res.json())
@@ -81,7 +83,7 @@ export function ProfilePage() {
     })
     .catch(console.error);
 
-    fetch('http://localhost:8000/api/profile/stats', {
+    fetch(`${import.meta.env.VITE_API_URL}/profile/stats`, {
         headers: { 'Authorization': `Bearer ${localStorage.getItem('access_token')}` }
     })
     .then(res => res.json())
@@ -89,6 +91,8 @@ export function ProfilePage() {
         setRadarData(data.radarData || []);
         setActivityData(data.activityData || []);
         setBadges(data.badges || []);
+        setCategoryBreakdown(data.categoryBreakdown || []);
+        setKeyMetrics(data.keyMetrics || []);
     })
     .catch(console.error);
   }, []);
@@ -307,12 +311,7 @@ export function ProfilePage() {
               <h2 className="font-bold text-gray-900 text-sm mb-3">
                 Category Breakdown
               </h2>
-              {[
-                { emoji: "♻️", cat: "Recyclable", count: 329, pct: 45, color: "bg-blue-500" },
-                { emoji: "🌱", cat: "Organic", count: 205, pct: 28, color: "bg-green-500" },
-                { emoji: "💻", cat: "E-Waste", count: 117, pct: 16, color: "bg-purple-500" },
-                { emoji: "⚠️", cat: "Hazardous", count: 80, pct: 11, color: "bg-red-500" },
-              ].map((c, i) => (
+              {categoryBreakdown.map((c, i) => (
                 <div key={i} className="mb-2">
                   <div className="flex justify-between text-xs mb-1">
                     <span className="text-gray-600">
@@ -351,12 +350,7 @@ export function ProfilePage() {
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
               <h2 className="font-bold text-gray-900 mb-4">Key Metrics</h2>
               <div className="space-y-4">
-                {[
-                  { label: "Overall Accuracy", val: "96.7%", bar: 96.7, color: "bg-emerald-500" },
-                  { label: "High Confidence Rate", val: "89.2%", bar: 89.2, color: "bg-blue-500" },
-                  { label: "Dispute Win Rate", val: "78.5%", bar: 78.5, color: "bg-violet-500" },
-                  { label: "Daily Active Rate", val: "94.3%", bar: 94.3, color: "bg-amber-500" },
-                ].map((m, i) => (
+                {keyMetrics.map((m, i) => (
                   <div key={i}>
                     <div className="flex justify-between text-sm mb-1.5">
                       <span className="text-gray-600">{m.label}</span>

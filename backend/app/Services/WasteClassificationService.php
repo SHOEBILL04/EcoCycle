@@ -95,12 +95,7 @@ class WasteClassificationService
             if ($response->failed() || isset($response->json()['error'])) {
                 $errorMsg = $response->json()['error']['message'] ?? $response->body();
                 Log::error('Vision API Request Failed: ' . $errorMsg);
-                // Simulated fallback if API Key is dummy/fails, specifically testing clothing.
-                $labels = [
-                    ['description' => 'Clothing', 'score' => 0.95],
-                    ['description' => 'Textile', 'score' => 0.89],
-                    ['description' => 'Apparel', 'score' => 0.85]
-                ];
+                $labels = [];
             } else {
                 $labels = $response->json()['responses'][0]['labelAnnotations'] ?? [];
             }

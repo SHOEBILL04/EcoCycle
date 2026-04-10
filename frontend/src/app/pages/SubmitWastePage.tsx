@@ -19,6 +19,7 @@ import { motion, AnimatePresence } from "motion/react";
 
 type ClassificationStatus = "idle" | "analyzing" | "result" | "dispute";
 type ProbabilityMap = Record<string, number>;
+const ECHO_MODEL_URL = "https://teachablemachine.withgoogle.com/models/MUD5GsV1U/";
 
 const engines = [
   {
@@ -103,7 +104,6 @@ export function SubmitWastePage() {
   const [status, setStatus] = useState<ClassificationStatus>("idle");
   const [result, setResult] = useState<(typeof mockResults)["high"] | null>(null);
   const [analysisProgress, setAnalysisProgress] = useState(0);
-  const [tmUrl, setTmUrl] = useState("https://teachablemachine.withgoogle.com/models/MUD5GsV1U/");
   const [confidenceThreshold, setConfidenceThreshold] = useState(0.85);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -141,8 +141,8 @@ export function SubmitWastePage() {
 
       if (selectedEngine === "echo_engine") {
         try {
-          const modelURL = tmUrl.endsWith('/') ? tmUrl + "model.json" : tmUrl + "/model.json";
-          const metadataURL = tmUrl.endsWith('/') ? tmUrl + "metadata.json" : tmUrl + "/metadata.json";
+          const modelURL = ECHO_MODEL_URL.endsWith('/') ? ECHO_MODEL_URL + "model.json" : ECHO_MODEL_URL + "/model.json";
+          const metadataURL = ECHO_MODEL_URL.endsWith('/') ? ECHO_MODEL_URL + "metadata.json" : ECHO_MODEL_URL + "/metadata.json";
           
           const model = await tmImage.load(modelURL, metadataURL);
           const img = new Image();
@@ -166,7 +166,7 @@ export function SubmitWastePage() {
         }
       }
 
-      const response = await fetch('http://localhost:8000/api/submit-waste', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/submit-waste`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -360,23 +360,6 @@ export function SubmitWastePage() {
                 </button>
               ))}
             </div>
-            {selectedEngine === "echo_engine" && (
-              <div className="mt-4 animate-in fade-in slide-in-from-top-2">
-                <label className="block text-sm font-semibold text-gray-900 mb-1.5">
-                  Echo Model URL
-                </label>
-                <input
-                  type="text"
-                  value={tmUrl}
-                  onChange={(e) => setTmUrl(e.target.value)}
-                  className="w-full text-sm border-gray-300 border bg-white rounded-xl px-3 py-2.5 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all text-gray-700"
-                  placeholder="https://teachablemachine.withgoogle.com/models/.../"
-                />
-                <p className="text-xs text-gray-400 mt-1.5 ml-1 leading-snug">
-                  Echo_engine uses this Teachable Machine model before deciding whether Gemini fallback is needed.
-                </p>
-              </div>
-            )}
           </div>
 
           {/* Tips */}

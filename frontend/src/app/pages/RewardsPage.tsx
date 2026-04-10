@@ -40,7 +40,7 @@ export function RewardsPage() {
   const [joined, setJoined] = useState('recently');
 
   useEffect(() => {
-    fetch('http://localhost:8000/api/rewards', {
+    fetch(`${import.meta.env.VITE_API_URL}/rewards`, {
         headers: { 'Authorization': `Bearer ${localStorage.getItem('access_token')}` }
     })
     .then(res => res.json())
@@ -71,7 +71,7 @@ export function RewardsPage() {
 
   const handleRedeem = (id: number, cost: number, title: string) => {
     if (confirming === id) {
-      fetch('http://localhost:8000/api/redeem', {
+      fetch(`${import.meta.env.VITE_API_URL}/redeem`, {
          method: 'POST',
          headers: {
            'Authorization': `Bearer ${localStorage.getItem('access_token')}`,

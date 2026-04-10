@@ -29,63 +29,7 @@ import {
 
 
 
-const recentSubmissions = [
-  {
-    id: "SUB-4821",
-    item: "PET Plastic Bottle",
-    category: "Recyclable",
-    confidence: 0.94,
-    points: 15,
-    status: "approved",
-    time: "2 hours ago",
-    emoji: "♻️",
-    color: "blue",
-  },
-  {
-    id: "SUB-4820",
-    item: "Banana Peel",
-    category: "Organic",
-    confidence: 0.97,
-    points: 10,
-    status: "approved",
-    time: "5 hours ago",
-    emoji: "🌱",
-    color: "green",
-  },
-  {
-    id: "SUB-4819",
-    item: "Old Smartphone",
-    category: "E-Waste",
-    confidence: 0.61,
-    points: 0,
-    status: "dispute",
-    time: "8 hours ago",
-    emoji: "💻",
-    color: "purple",
-  },
-  {
-    id: "SUB-4818",
-    item: "Paint Can",
-    category: "Hazardous",
-    confidence: 0.88,
-    points: 20,
-    status: "approved",
-    time: "1 day ago",
-    emoji: "⚠️",
-    color: "red",
-  },
-  {
-    id: "SUB-4817",
-    item: "Cardboard Box",
-    category: "Recyclable",
-    confidence: 0.99,
-    points: 12,
-    status: "approved",
-    time: "1 day ago",
-    emoji: "♻️",
-    color: "blue",
-  },
-];
+// Removed hardcoded recentSubmissions
 
 
 
@@ -107,7 +51,7 @@ export function DashboardPage() {
 
   useEffect(() => {
     const token = localStorage.getItem('access_token');
-    fetch('http://localhost:8000/api/dashboard', {
+    fetch(`${import.meta.env.VITE_API_URL}/dashboard`, {
         headers: {
             'Authorization': `Bearer ${token}`
         }
@@ -133,7 +77,7 @@ export function DashboardPage() {
     );
   }
 
-  const { stats, points_history, category_data, recent_submissions, leaderboard_nearby, badges } = data;
+  const { stats, points_history, category_data, recent_submissions, leaderboard_nearby, badges, challenges } = data;
 
   const statCards = [
     {
@@ -210,7 +154,7 @@ export function DashboardPage() {
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2 bg-orange-50 border border-orange-200 rounded-xl px-3 py-2">
             <Flame className="w-4 h-4 text-orange-500" />
-            <span className="text-sm font-bold text-orange-700">12 day streak!</span>
+            <span className="text-sm font-bold text-orange-700">{stats.streak || 0} day streak!</span>
           </div>
           <Link
             to="/app/submit"
@@ -323,7 +267,7 @@ export function DashboardPage() {
             </div>
           </div>
           <ResponsiveContainer width="100%" height={200}>
-            <AreaChart data={points_history.reverse()}>
+            <AreaChart data={points_history}>
               <defs>
                 <linearGradient id="pointsGrad" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
@@ -525,10 +469,10 @@ export function DashboardPage() {
             <h2 className="font-bold mb-4">Overview</h2>
             <div className="space-y-3">
               {[
-                { label: "Submissions", val: "14", icon: Camera },
-                { label: "Points Earned", val: "960", icon: Leaf },
-                { label: "Disputes Won", val: "2", icon: CheckCircle },
-                { label: "Streak Days", val: "12", icon: Flame },
+                { label: "Submissions", val: stats.classification_count?.toLocaleString() || "0", icon: Camera },
+                { label: "Points Earned", val: stats.total_points?.toLocaleString() || "0", icon: Leaf },
+                { label: "Disputes Won", val: stats.disputes_won?.toLocaleString() || "0", icon: CheckCircle },
+                { label: "Streak Days", val: stats.streak?.toLocaleString() || "0", icon: Flame },
               ].map((item: any, i: number) => (
                 <div key={i} className="flex items-center justify-between">
                   <div className="flex items-center gap-2 text-emerald-100">

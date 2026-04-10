@@ -51,6 +51,7 @@ export function SignUpPage() {
     email: "",
     password: "",
     sub_district: "",
+    is_private: false,
     agree: false,
   });
   const navigate = useNavigate();
@@ -68,7 +69,7 @@ export function SignUpPage() {
       setStep(2);
     } else {
       try {
-        const response = await fetch('http://localhost:8000/api/register', {
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/register`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -82,6 +83,7 @@ export function SignUpPage() {
             country: country,
             district: district,
             sub_district: form.sub_district,
+            is_private: form.is_private,
           })
         });
 
@@ -392,17 +394,21 @@ export function SignUpPage() {
                       Profile Visibility
                     </label>
                     <div className="grid grid-cols-2 gap-2">
-                      {["Public", "Private"].map((opt) => (
+                      {[
+                        { label: "Public", value: false, emoji: "🌍" },
+                        { label: "Private", value: true, emoji: "🔒" },
+                      ].map((opt) => (
                         <button
-                          key={opt}
+                          key={opt.label}
                           type="button"
+                          onClick={() => setForm(f => ({ ...f, is_private: opt.value }))}
                           className={`py-3 rounded-xl text-sm font-medium border transition-all ${
-                            opt === "Public"
+                            form.is_private === opt.value
                               ? "bg-emerald-500/20 border-emerald-500/50 text-emerald-300"
                               : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10"
                           }`}
                         >
-                          {opt === "Public" ? "🌍" : "🔒"} {opt}
+                          {opt.emoji} {opt.label}
                         </button>
                       ))}
                     </div>

@@ -62,7 +62,7 @@ export function AuditTrailPage() {
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
 
   useEffect(() => {
-     fetch('http://localhost:8000/api/admin/audit-trail', {
+     fetch(`${import.meta.env.VITE_API_URL}/admin/audit-trail`, {
          headers: { 'Authorization': `Bearer ${localStorage.getItem('access_token')}` }
      })
      .then(res => res.json())
@@ -79,6 +79,7 @@ export function AuditTrailPage() {
       if (type.includes('POINTS') || type.includes('REWARD')) return 'reward';
       if (type.includes('ROLE')) return 'role';
       if (type.includes('FOLLOW')) return 'social';
+      if (type.includes('FLAGGED') || type.includes('PENALTY')) return 'fraud';
       return 'classification';
   };
 
