@@ -1,0 +1,612 @@
+import { useState, useRef } from "react";
+import {
+  Upload,
+  Camera,
+  X,
+  Zap,
+  CheckCircle,
+  AlertTriangle,
+  RefreshCw,
+  Info,
+  ChevronRight,
+  Cpu,
+  BarChart2,
+  Leaf,
+  ArrowRight,
+} from "lucide-react";
+import { motion, AnimatePresence } from "motion/react";
+
+type ClassificationStatus = "idle" | "analyzing" | "result" | "dispute";
+
+const engines = [
+  {
+    id: "model-a",
+    name: "VisionNet v3",
+    desc: "CNN-based model, fast & broad",
+    badge: "Default",
+    color: "emerald",
+  },
+  {
+    id: "model-b",
+    name: "EcoClassifier",
+    desc: "Transformer model, higher precision",
+    badge: "High Accuracy",
+    color: "blue",
+  },
+  {
+    id: "dual",
+    name: "Dual Engine",
+    desc: "Both models, automatic dispute resolution",
+    badge: "Recommended",
+    color: "purple",
+  },
+];
+
+const mockResults = {
+  high: {
+    category: "Recyclable",
+    subcategory: "PET Plastic — Type 1",
+    confidence: 0.94,
+    emoji: "♻️",
+    color: "blue",
+    bg: "bg-blue-50",
+    border: "border-blue-200",
+    badge: "bg-blue-100 text-blue-700",
+    points: 15,
+    status: "approved" as const,
+    modelA: { confidence: 0.94, category: "Recyclable" },
+    modelB: { confidence: 0.91, category: "Recyclable" },
+    tips: [
+      "Rinse container before placing in recycling bin",
+      "Remove any lids or caps",
+      "Crush to save space in the bin",
+    ],
+  },
+  low: {
+    category: "E-Waste",
+    subcategory: "Consumer Electronics",
+    confidence: 0.61,
+    emoji: "💻",
+    color: "purple",
+    bg: "bg-purple-50",
+    border: "border-purple-200",
+    badge: "bg-purple-100 text-purple-700",
+    points: 0,
+    status: "dispute" as const,
+    modelA: { confidence: 0.61, category: "E-Waste" },
+    modelB: { confidence: 0.44, category: "Hazardous" },
+    tips: [
+      "E-waste must be dropped at a certified collection point",
+      "Never dispose in regular trash",
+      "Check for manufacturer take-back programs",
+    ],
+  },
+};
+
+export function SubmitWastePage() {
+  const [selectedEngine, setSelectedEngine] = useState("dual");
+  const [dragOver, setDragOver] = useState(false);
+  const [uploadedImage, setUploadedImage] = useState<string | null>(null);
+  const [status, setStatus] = useState<ClassificationStatus>("idle");
+  const [result, setResult] = useState<(typeof mockResults)["high"] | null>(null);
+  const [analysisProgress, setAnalysisProgress] = useState(0);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFile = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      setUploadedImage(e.target?.result as string);
+      setStatus("idle");
+      setResult(null);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+    const file = e.dataTransfer.files[0];
+    if (file && file.type.startsWith("image/")) handleFile(file);
+  };
+
+  const handleAnalyze = () => {
+    setStatus("analyzing");
+    setAnalysisProgress(0);
+    const interval = setInterval(() => {
+      setAnalysisProgress((prev) => {
+        if (prev >= 100) {
+          clearInterval(interval);
+          // Random: 70% high confidence, 30% low
+          const isHigh = Math.random() > 0.3;
+          const res = isHigh ? mockResults.high : mockResults.low;
+          setResult(res);
+          setStatus(res.status === "dispute" ? "dispute" : "result");
+          return 100;
+        }
+        return prev + 8;
+      });
+    }, 120);
+  };
+
+  const handleReset = () => {
+    setUploadedImage(null);
+    setStatus("idle");
+    setResult(null);
+    setAnalysisProgress(0);
+  };
+
+  const confidenceColor = (c: number) =>
+    c >= 0.75 ? "text-emerald-600" : c >= 0.5 ? "text-amber-600" : "text-red-600";
+  const confidenceBg = (c: number) =>
+    c >= 0.75
+      ? "from-emerald-500 to-green-400"
+      : c >= 0.5
+        ? "from-amber-500 to-yellow-400"
+        : "from-red-500 to-red-400";
+
+  return (
+    <div className="p-4 lg:p-6 max-w-5xl mx-auto">
+      {/* Header */}
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-gray-900">Submit Waste Item</h1>
+        <p className="text-gray-500 text-sm mt-0.5">
+          Upload a photo of your waste item for AI-powered classification
+        </p>
+      </div>
+
+      <div className="grid lg:grid-cols-5 gap-6">
+        {/* Left column: upload + engine */}
+        <div className="lg:col-span-2 space-y-5">
+          {/* Engine selector */}
+          <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
+            <div className="flex items-center gap-2 mb-4">
+              <Cpu className="w-4 h-4 text-gray-500" />
+              <h2 className="font-bold text-gray-900 text-sm">
+                Classification Engine
+              </h2>
+            </div>
+            <div className="space-y-2">
+              {engines.map((engine) => (
+                <button
+                  key={engine.id}
+                  onClick={() => setSelectedEngine(engine.id)}
+                  className={`w-full flex items-start gap-3 p-3 rounded-xl border transition-all text-left ${
+                    selectedEngine === engine.id
+                      ? engine.color === "emerald"
+                        ? "bg-emerald-50 border-emerald-300"
+                        : engine.color === "blue"
+                          ? "bg-blue-50 border-blue-300"
+                          : "bg-purple-50 border-purple-300"
+                      : "bg-gray-50 border-gray-200 hover:bg-gray-100"
+                  }`}
+                >
+                  <div
+                    className={`w-4 h-4 rounded-full border-2 flex-shrink-0 mt-0.5 ${
+                      selectedEngine === engine.id
+                        ? engine.color === "emerald"
+                          ? "border-emerald-500 bg-emerald-500"
+                          : engine.color === "blue"
+                            ? "border-blue-500 bg-blue-500"
+                            : "border-purple-500 bg-purple-500"
+                        : "border-gray-300"
+                    }`}
+                  >
+                    {selectedEngine === engine.id && (
+                      <div className="w-1.5 h-1.5 bg-white rounded-full m-auto mt-0.5"></div>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-sm font-semibold text-gray-900">
+                        {engine.name}
+                      </span>
+                      <span
+                        className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                          engine.color === "emerald"
+                            ? "bg-emerald-100 text-emerald-700"
+                            : engine.color === "blue"
+                              ? "bg-blue-100 text-blue-700"
+                              : "bg-purple-100 text-purple-700"
+                        }`}
+                      >
+                        {engine.badge}
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-400 mt-0.5">{engine.desc}</p>
+                  </div>
+                </button>
+              ))}
+            </div>
+            <div className="mt-3 flex items-start gap-2 text-xs text-gray-400 bg-gray-50 rounded-xl p-3">
+              <Info className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+              <span>
+                Confidence threshold is set at <strong>0.75</strong> in system
+                configuration. Scores below this trigger dispute resolution.
+              </span>
+            </div>
+          </div>
+
+          {/* Tips */}
+          <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4">
+            <h3 className="text-sm font-bold text-emerald-800 mb-2 flex items-center gap-2">
+              <Leaf className="w-4 h-4" /> Photo Tips
+            </h3>
+            <ul className="space-y-1.5 text-xs text-emerald-700">
+              {[
+                "Good lighting — avoid dark or blurry photos",
+                "Single item per submission for best accuracy",
+                "Include the full item in the frame",
+                "Avoid obstructions like hands or other objects",
+              ].map((tip, i) => (
+                <li key={i} className="flex items-center gap-2">
+                  <CheckCircle className="w-3 h-3 text-emerald-500 flex-shrink-0" />
+                  {tip}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+
+        {/* Right column: upload area + results */}
+        <div className="lg:col-span-3 space-y-5">
+          {/* Upload area */}
+          {!uploadedImage ? (
+            <div
+              onDrop={handleDrop}
+              onDragOver={(e) => {
+                e.preventDefault();
+                setDragOver(true);
+              }}
+              onDragLeave={() => setDragOver(false)}
+              className={`relative border-2 border-dashed rounded-2xl transition-all cursor-pointer min-h-64 flex flex-col items-center justify-center gap-4 p-8 ${
+                dragOver
+                  ? "border-emerald-500 bg-emerald-50"
+                  : "border-gray-200 bg-gray-50 hover:border-emerald-300 hover:bg-emerald-50/50"
+              }`}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) handleFile(file);
+                }}
+              />
+              <div
+                className={`w-20 h-20 rounded-3xl flex items-center justify-center transition-colors ${dragOver ? "bg-emerald-100" : "bg-white border border-gray-200"}`}
+              >
+                {dragOver ? (
+                  <Upload className="w-10 h-10 text-emerald-500" />
+                ) : (
+                  <Camera className="w-10 h-10 text-gray-400" />
+                )}
+              </div>
+              <div className="text-center">
+                <p className="font-semibold text-gray-700">
+                  {dragOver
+                    ? "Drop to upload"
+                    : "Drag & drop your waste photo"}
+                </p>
+                <p className="text-sm text-gray-400 mt-1">
+                  or click to browse — JPG, PNG, WEBP up to 10MB
+                </p>
+              </div>
+              <div className="flex gap-3">
+                <button className="flex items-center gap-2 bg-white border border-gray-200 text-gray-600 text-sm font-medium px-4 py-2 rounded-xl hover:bg-gray-50 transition-colors">
+                  <Upload className="w-4 h-4" />
+                  Browse Files
+                </button>
+                <button className="flex items-center gap-2 bg-white border border-gray-200 text-gray-600 text-sm font-medium px-4 py-2 rounded-xl hover:bg-gray-50 transition-colors">
+                  <Camera className="w-4 h-4" />
+                  Use Camera
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+              <div className="relative">
+                <img
+                  src={uploadedImage}
+                  alt="Uploaded waste"
+                  className="w-full h-64 object-cover"
+                />
+                <button
+                  onClick={handleReset}
+                  className="absolute top-3 right-3 w-8 h-8 bg-black/50 hover:bg-black/70 rounded-full flex items-center justify-center text-white transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+                {status === "idle" && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+                    <button
+                      onClick={handleAnalyze}
+                      className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white font-bold px-6 py-3 rounded-2xl shadow-xl transition-colors"
+                    >
+                      <Zap className="w-4 h-4" />
+                      Analyze with AI
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Analysis progress */}
+              <AnimatePresence>
+                {status === "analyzing" && (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="p-6"
+                  >
+                    <div className="flex items-center gap-3 mb-4">
+                      <RefreshCw className="w-5 h-5 text-emerald-500 animate-spin" />
+                      <div>
+                        <p className="font-semibold text-gray-900 text-sm">
+                          Analyzing with {selectedEngine === "dual" ? "Dual Engine" : selectedEngine}...
+                        </p>
+                        <p className="text-xs text-gray-400">
+                          Running classification models
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      {[
+                        { label: "VisionNet v3", progress: analysisProgress },
+                        {
+                          label: "EcoClassifier",
+                          progress: Math.max(0, analysisProgress - 15),
+                        },
+                      ].map((m, i) => (
+                        <div key={i}>
+                          <div className="flex justify-between text-xs text-gray-500 mb-1">
+                            <span>{m.label}</span>
+                            <span>{m.progress}%</span>
+                          </div>
+                          <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-gradient-to-r from-emerald-500 to-green-400 rounded-full transition-all duration-100"
+                              style={{ width: `${m.progress}%` }}
+                            ></div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Result */}
+              <AnimatePresence>
+                {result && status !== "analyzing" && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="p-5"
+                  >
+                    {/* Status banner */}
+                    {status === "dispute" ? (
+                      <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4">
+                        <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0" />
+                        <div>
+                          <p className="text-sm font-bold text-amber-800">
+                            Low Confidence — Dispute Triggered
+                          </p>
+                          <p className="text-xs text-amber-600">
+                            Score {(result.confidence * 100).toFixed(0)}% is below the 75% threshold. A
+                            moderator will review this submission before points
+                            are awarded.
+                          </p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-3 bg-emerald-50 border border-emerald-200 rounded-xl p-3 mb-4">
+                        <CheckCircle className="w-5 h-5 text-emerald-600 flex-shrink-0" />
+                        <div>
+                          <p className="text-sm font-bold text-emerald-800">
+                            Classification Approved
+                          </p>
+                          <p className="text-xs text-emerald-600">
+                            High confidence result — points awarded instantly
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Category result */}
+                    <div
+                      className={`${result.bg} ${result.border} border rounded-2xl p-4 mb-4`}
+                    >
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="text-4xl">{result.emoji}</div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h3 className="text-lg font-bold text-gray-900">
+                              {result.category}
+                            </h3>
+                            <span
+                              className={`text-xs px-2 py-0.5 rounded-full font-medium ${result.badge}`}
+                            >
+                              {result.subcategory}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2 mt-1">
+                            <div className="h-2 w-32 bg-gray-200 rounded-full overflow-hidden">
+                              <div
+                                className={`h-full bg-gradient-to-r ${confidenceBg(result.confidence)} rounded-full`}
+                                style={{
+                                  width: `${result.confidence * 100}%`,
+                                }}
+                              ></div>
+                            </div>
+                            <span
+                              className={`text-sm font-bold ${confidenceColor(result.confidence)}`}
+                            >
+                              {(result.confidence * 100).toFixed(0)}% confidence
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Dual model scores */}
+                      <div className="grid grid-cols-2 gap-2">
+                        {[
+                          {
+                            name: "VisionNet v3",
+                            data: result.modelA,
+                          },
+                          {
+                            name: "EcoClassifier",
+                            data: result.modelB,
+                          },
+                        ].map((m, i) => (
+                          <div
+                            key={i}
+                            className="bg-white/70 rounded-xl p-2.5 text-center"
+                          >
+                            <p className="text-xs text-gray-500 mb-1">{m.name}</p>
+                            <p className="text-sm font-bold text-gray-900">
+                              {m.data.category}
+                            </p>
+                            <p
+                              className={`text-xs font-semibold ${confidenceColor(m.data.confidence)}`}
+                            >
+                              {(m.data.confidence * 100).toFixed(0)}%
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Points */}
+                    <div className="flex items-center justify-between bg-gray-50 rounded-xl p-3 mb-4">
+                      <div className="flex items-center gap-2">
+                        <Leaf className="w-4 h-4 text-emerald-500" />
+                        <span className="text-sm text-gray-600">Points</span>
+                      </div>
+                      <span
+                        className={`text-base font-bold ${status === "dispute" ? "text-gray-400" : "text-emerald-600"}`}
+                      >
+                        {status === "dispute"
+                          ? "Pending resolution"
+                          : `+${result.points} pts`}
+                      </span>
+                    </div>
+
+                    {/* Disposal tips */}
+                    <div>
+                      <p className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wider">
+                        Disposal Tips
+                      </p>
+                      <ul className="space-y-1.5">
+                        {result.tips.map((tip, i) => (
+                          <li
+                            key={i}
+                            className="flex items-start gap-2 text-xs text-gray-600"
+                          >
+                            <ChevronRight className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0 mt-0.5" />
+                            {tip}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    <div className="flex gap-2 mt-4">
+                      <button
+                        onClick={handleReset}
+                        className="flex-1 flex items-center justify-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-2.5 rounded-xl text-sm transition-colors"
+                      >
+                        <RefreshCw className="w-4 h-4" />
+                        New Submission
+                      </button>
+                      <button className="flex-1 flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white font-medium py-2.5 rounded-xl text-sm transition-colors">
+                        Share Result
+                        <ArrowRight className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Analyze button when image loaded and idle */}
+              {status === "idle" && (
+                <div className="p-4 border-t border-gray-100">
+                  <button
+                    onClick={handleAnalyze}
+                    className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-500 to-green-600 text-white font-bold py-3.5 rounded-xl hover:from-emerald-600 hover:to-green-700 transition-all shadow-lg shadow-emerald-500/25"
+                  >
+                    <Zap className="w-4 h-4" />
+                    Classify with AI
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Submission history */}
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+            <div className="flex items-center gap-2 mb-4">
+              <BarChart2 className="w-4 h-4 text-gray-400" />
+              <h2 className="font-bold text-gray-900 text-sm">
+                Recent Submissions
+              </h2>
+            </div>
+            <div className="space-y-2">
+              {[
+                {
+                  emoji: "♻️",
+                  item: "PET Plastic Bottle",
+                  cat: "Recyclable",
+                  conf: 0.94,
+                  pts: 15,
+                  ok: true,
+                },
+                {
+                  emoji: "🌱",
+                  item: "Banana Peel",
+                  cat: "Organic",
+                  conf: 0.97,
+                  pts: 10,
+                  ok: true,
+                },
+                {
+                  emoji: "💻",
+                  item: "Old Smartphone",
+                  cat: "E-Waste",
+                  conf: 0.61,
+                  pts: 0,
+                  ok: false,
+                },
+              ].map((s, i) => (
+                <div
+                  key={i}
+                  className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-gray-50 transition-colors"
+                >
+                  <span className="text-xl">{s.emoji}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-gray-900 font-medium truncate">
+                      {s.item}
+                    </p>
+                    <p className="text-xs text-gray-400">{s.cat}</p>
+                  </div>
+                  <div className="text-right">
+                    <p
+                      className={`text-sm font-bold ${s.ok ? "text-emerald-600" : "text-amber-600"}`}
+                    >
+                      {s.ok ? `+${s.pts}` : "⏳"}
+                    </p>
+                    <p className="text-xs text-gray-400">
+                      {(s.conf * 100).toFixed(0)}%
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
