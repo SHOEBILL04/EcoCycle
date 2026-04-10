@@ -4,210 +4,196 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\Submission;
-use App\Models\Notification;
 use App\Models\SystemAudit;
-use App\Models\Transaction;
-use App\Models\User;
+use App\Services\WasteClassificationService;
+use App\Services\RewardEngineService;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 
 class SubmissionController extends Controller
 {
-    private const POINTS_BY_CATEGORY = [
-        'recyclable' => 10,
-        'organic' => 8,
-        'e-waste' => 15,
-        'hazardous' => 20,
-    ];
+    public function __construct(
+        protected WasteClassificationService $classifier,
+        protected RewardEngineService $rewardEngine,
+    ) {}
 
-    public function store(Request $request)
+    /**
+     * Submit a waste item for AI classification and points.
+     * 
+     * Workflow:
+     * 1. Extract base64 and hash for fraud detection.
+     * 2. Fraud Check: Detect identical duplicate submissions.
+     * 3. Classification: Run dual AI engines (VisionNet & EcoClassifier).
+     * 4. Routing:
+     *    - High confidence + Clean: Auto-Reward.
+     *    - Mixed Waste/Hazardous/Low Confidence: Route to Moderator Queue (PENDING).
+     */
+    public function submit(Request $request)
     {
         $request->validate([
-            'image' => 'nullable|image|max:5120|required_without:image_b64',
-            'image_b64' => 'nullable|string|required_without:image',
+            'image_b64' => 'required|string',
+            'engine'    => 'nullable|string|in:model-a,model-b,dual',
         ]);
 
-        $user = $request->user();
-        $image = $request->file('image');
+        $user  = $request->user();
+        $b64   = preg_replace('#^data:image/[^;]+;base64,#', '', $request->input('image_b64'));
+        $imageHash = md5($b64);
 
-        if ($image) {
-            $storedPath = $image->store('submissions', 'public');
-            $imageUrl = Storage::url($storedPath);
-            $imageHash = md5_file($image->getRealPath());
-        } else {
-            $base64 = preg_replace('#^data:image/[^;]+;base64,#', '', (string) $request->input('image_b64'));
-            $binary = base64_decode($base64);
-            $filename = 'submissions/' . uniqid('submission_', true) . '.png';
-            Storage::disk('public')->put($filename, $binary);
-            $imageUrl = Storage::url($filename);
-            $imageHash = md5($base64);
-        }
+        // ── Fraud check: duplicate image ever ──────────────────────────────
+        $recentDuplicate = Submission::where('user_id', $user->id)
+            ->where('image_hash', $imageHash)
+            ->first();
 
-        $scores = $this->mockConfidenceScores();
-        [$topCategory, $topScore] = $this->highestCategoryAndScore($scores);
-        $pointsForCategory = self::POINTS_BY_CATEGORY[$topCategory];
-
-        DB::beginTransaction();
-        try {
-            $submission = Submission::create([
-                'user_id' => $user->id,
-                'image_url' => $imageUrl,
-                'status' => $topScore >= 0.80 ? 'REWARDED' : 'PENDING',
-                'ai_confidence_scores' => $scores,
-                'category' => $topCategory,
-                'confidence_score' => round($topScore, 2),
-                'final_category' => $topScore >= 0.80 ? $topCategory : null,
-                'final_confidence' => $topScore >= 0.80 ? round($topScore, 2) : null,
-                'points_awarded' => 0,
-                'image_hash' => $imageHash,
-            ]);
-
-            if ($topScore >= 0.80) {
-                $awarded = $this->awardPointsOnce($submission, $user, $topCategory, $pointsForCategory);
+        if ($recentDuplicate) {
+            DB::beginTransaction();
+            try {
+                // Apply Penalty: Deduct points and mark flag
+                $user->decrement('total_points', 30);
+                $user->increment('flags');
+                
+                $submission = Submission::create([
+                    'user_id'          => $user->id,
+                    'category'         => 'unknown',
+                    'confidence_score' => 0.00,
+                    'status'           => 'FLAGGED',
+                    'flagged_reason'   => 'Identical image submitted previously. Cheating detected.',
+                    'image_hash'       => $imageHash,
+                ]);
 
                 SystemAudit::create([
-                    'event_type' => 'AUTO_CLASSIFIED',
-                    'user_id' => $user->id,
-                    'description' => "Submission #{$submission->id} auto-classified as {$topCategory} at {$topScore} confidence.",
-                    'payload' => [
-                        'submissionId' => $submission->id,
-                        'finalCategory' => $topCategory,
-                        'finalConfidence' => round($topScore, 2),
-                        'pointsAwarded' => $awarded,
-                    ],
+                    'event_type'  => 'FAILED_SUBMISSION_FLAGGED_PENALTY',
+                    'user_id'     => $user->id,
+                    'description' => "User submitted a repetitive duplicate image hash. Deducted 30 points.",
+                    'payload'     => ['submission_id' => $submission->id, 'hash' => $imageHash, 'penalty' => 30],
                 ]);
 
                 DB::commit();
 
                 return response()->json([
-                    'status' => 'auto_classified',
-                    'finalCategory' => $topCategory,
-                    'finalConfidence' => round($topScore, 2),
-                    'pointsAwarded' => $awarded,
-                    'aiConfidenceScores' => $scores,
-                    'submission' => [
-                        'id' => $submission->id,
-                        'imageUrl' => $imageUrl,
-                    ],
-                ]);
+                    'status'       => 'FLAGGED',
+                    'message'      => 'Duplicate image detected. You have been penalized 30 points.',
+                    'submission'   => $submission,
+                    'penalty'      => 30,
+                    'total_points' => $user->fresh()->total_points,
+                ], 422);
+            } catch (\Exception $e) {
+                DB::rollBack();
+                return response()->json(['error' => 'Database failure applying penalty.'], 500);
             }
+        }
 
-            $moderators = User::where('role', 'moderator')
-                ->where(function ($query) {
-                    $query->whereNull('is_banned')->orWhere('is_banned', false);
-                })
-                ->get();
+        // ── Classify with real AI ───────────────────────────────────────────
+        try {
+            $classification = $this->classifier->classifyBase64($b64);
+        } catch (\Exception $e) {
+            return response()->json(['error' => 'AI Classification failed: ' . $e->getMessage()], 503);
+        }
 
-            foreach ($moderators as $moderator) {
-                Notification::create([
-                    'user_id' => $moderator->id,
-                    'message' => 'New dispute: A submission needs your review',
-                    'type' => 'dispute_raised',
-                    'submission_id' => $submission->id,
-                    'is_read' => false,
-                ]);
-            }
+        $threshold      = (float) env('CONFIDENCE_THRESHOLD', 0.85);
+        $engineChoice   = $request->input('engine', 'dual');
+
+        // Logic to select "Primary" based on user preference or defaults
+        if ($engineChoice === 'model-b') {
+            $primaryScore = $classification['secondary_confidence'];
+            $primaryCategory = $classification['secondary_category'];
+            $altScore = $classification['primary_confidence'];
+            $altCategory = $classification['category'];
+        } else {
+            $primaryScore = $classification['primary_confidence'];
+            $primaryCategory = $classification['category'];
+            $altScore = $classification['secondary_confidence'];
+            $altCategory = $classification['secondary_category'];
+        }
+
+        DB::beginTransaction();
+        try {
+            $submission = Submission::create([
+                'user_id'                    => $user->id,
+                'category'                   => $primaryCategory,
+                'subcategory'                => $classification['subcategory'] ?? null,
+                'confidence_score'           => $primaryScore,
+                'secondary_confidence_score' => $altScore,
+                'status'                     => 'SUBMITTED',
+                'image_hash'                 => $imageHash,
+            ]);
 
             SystemAudit::create([
-                'event_type' => 'DISPUTE_RAISED',
-                'user_id' => $user->id,
-                'description' => "Submission #{$submission->id} sent for moderator review.",
-                'payload' => [
-                    'submissionId' => $submission->id,
-                    'aiConfidenceScores' => $scores,
-                ],
+                'event_type'  => 'SUBMISSION_CREATED',
+                'user_id'     => $user->id,
+                'description' => "Submission classified as '{$primaryCategory}' via AI.",
+                'payload'     => $classification,
             ]);
 
             DB::commit();
-
-            return response()->json([
-                'status' => 'pending',
-                'message' => 'Sent for moderator review',
-                'submission' => [
-                    'id' => $submission->id,
-                    'imageUrl' => $imageUrl,
-                    'aiConfidenceScores' => $scores,
-                ],
-            ]);
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(['error' => 'Submission creation failed.'], 500);
-        }
-    }
-
-    public function submit(Request $request)
-    {
-        return $this->store($request);
-    }
-
-    private function mockConfidenceScores(): array
-    {
-        $raw = [
-            'recyclable' => random_int(1, 100),
-            'organic' => random_int(1, 100),
-            'e-waste' => random_int(1, 100),
-            'hazardous' => random_int(1, 100),
-        ];
-
-        $sum = array_sum($raw);
-
-        $normalized = [];
-        foreach ($raw as $category => $score) {
-            $normalized[$category] = $score / $sum;
+            return response()->json(['error' => 'Database failure during submission creation.'], 500);
         }
 
-        $rounded = [];
-        $running = 0.0;
-        $categories = array_keys($normalized);
-        foreach ($categories as $index => $category) {
-            if ($index === count($categories) - 1) {
-                $rounded[$category] = round(max(0.0, 1 - $running), 4);
-            } else {
-                $rounded[$category] = round($normalized[$category], 4);
-                $running += $rounded[$category];
+        // ── Route by confidence & quality checks ──────────────────────────────
+        $isMixed = $classification['is_mixed'] ?? false;
+        
+        // Block auto-reward for mixed waste, hazardous waste, or low confidence
+        if ($primaryScore >= $threshold && !$isMixed && $primaryCategory !== 'hazardous') {
+            try {
+                $points = 10;
+                $this->rewardEngine->processResolvedSubmission($submission, $points);
+
+                return response()->json([
+                    'status'        => 'REWARDED',
+                    'message'       => "High confidence! You earned {$points} points.",
+                    'submission'    => $submission->fresh(),
+                    'classification'=> $classification,
+                ]);
+            } catch (\Exception $e) {
+                return response()->json(['error' => 'Reward processing failed: ' . $e->getMessage()], 500);
             }
         }
 
-        return $rounded;
-    }
+        // ── Dispute / Manual Queue Path ───────────────────────────────────────
+        DB::beginTransaction();
+        try {
+            // Attempt auto-resolution with alternative engine IF clean
+            if ($altScore >= $threshold && !$isMixed && $altCategory !== 'hazardous') {
+                $points = 10;
+                $submission->category = $altCategory;
+                $this->rewardEngine->processResolvedSubmission($submission, $points);
 
-    private function highestCategoryAndScore(array $scores): array
-    {
-        $bestCategory = 'recyclable';
-        $bestScore = 0.0;
-        foreach ($scores as $category => $score) {
-            if ($score > $bestScore) {
-                $bestCategory = $category;
-                $bestScore = (float) $score;
+                DB::commit();
+
+                return response()->json([
+                    'status'        => 'REWARDED_VIA_DISPUTE',
+                    'message'       => "Resolved by alternative engine! You earned {$points} points.",
+                    'submission'    => $submission->fresh(),
+                    'classification'=> $classification,
+                ]);
             }
+
+            // Otherwise, finalize as PENDING
+            $submission->status = 'PENDING';
+            $submission->save();
+
+            $reason = "Low confidence";
+            if ($isMixed) $reason = "Mixed waste detected";
+            if ($primaryCategory === 'hazardous') $reason = "Hazardous/Non-Recycleable detected";
+
+            SystemAudit::create([
+                'event_type'  => 'SUBMISSION_PENDING',
+                'user_id'     => $user->id,
+                'description' => "Submission #{$submission->id} queued for moderation. Reason: {$reason}.",
+                'payload'     => $classification,
+            ]);
+
+            DB::commit();
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json(['error' => 'Failed to queue submission for review.'], 500);
         }
 
-        return [$bestCategory, $bestScore];
-    }
-
-    private function awardPointsOnce(Submission $submission, User $user, string $category, int $points): int
-    {
-        $existing = Transaction::where('submission_id', $submission->id)
-            ->where('type', 'reward')
-            ->first();
-
-        if ($existing) {
-            return 0;
-        }
-
-        Transaction::create([
-            'user_id' => $user->id,
-            'submission_id' => $submission->id,
-            'points' => $points,
-            'type' => 'reward',
-            'description' => "Points for {$category} classification",
+        return response()->json([
+            'status'        => 'PENDING',
+            'message'       => "AI detected: {$reason}. Submitted for moderator review.",
+            'submission'    => $submission,
+            'classification'=> $classification,
         ]);
-
-        $user->increment('total_points', $points);
-
-        $submission->points_awarded = $points;
-        $submission->save();
-
-        return $points;
     }
 }
