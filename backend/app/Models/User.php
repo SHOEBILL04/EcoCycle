@@ -30,6 +30,7 @@ class User extends Authenticatable
         'user_title',
         'role',
         'is_private',
+        'flags',
     ];
 
     public function clan()

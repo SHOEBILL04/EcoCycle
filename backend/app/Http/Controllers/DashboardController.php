@@ -110,6 +110,15 @@ class DashboardController extends Controller
             ['emoji' => '💯', 'label' => 'Top 100', 'earned' => $rank <= 100],
         ];
 
+        $clanAlerts = [];
+        if ($user->clan_id) {
+            $clanAlerts = User::where('clan_id', $user->clan_id)
+                ->where('flags', '>=', 4)
+                ->where('id', '!=', $user->id)
+                ->select('id', 'name', 'flags')
+                ->get();
+        }
+
         return response()->json([
             'stats' => [
                 'total_points' => $user->total_points,
@@ -118,11 +127,16 @@ class DashboardController extends Controller
                 'community_rank' => $rank,
                 'name' => $user->name,
             ],
+<<<<<<< fix/waste_identify_issue
+            'recent_submissions' => $recentSubmissions,
+            'clan_alerts' => $clanAlerts,
+=======
             'points_history' => $pointsHistory,
             'category_data' => $categoryData,
             'recent_submissions' => $recentSubmissions,
             'leaderboard_nearby' => $nearbyUsers,
             'badges' => $badges,
+>>>>>>> main
         ]);
     }
 }
