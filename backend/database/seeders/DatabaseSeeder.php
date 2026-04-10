@@ -17,14 +17,25 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        $defaultClan = Clan::firstOrCreate(
-            ['name' => 'Dhaka Titans'],
-            [
-                'total_points' => 0,
-                'accuracy_rate' => 0,
-                'rank_title' => 'Bronze',
-            ]
-        );
+        $clans = [
+            ['name' => 'Eco Titans', 'rank_title' => 'Gold'],
+            ['name' => 'Green Guardians', 'rank_title' => 'Silver'],
+            ['name' => 'Recycle Rangers', 'rank_title' => 'Bronze'],
+            ['name' => 'Dhaka Titans', 'rank_title' => 'Bronze'],
+        ];
+
+        foreach ($clans as $clan) {
+            Clan::firstOrCreate(
+                ['name' => $clan['name']],
+                [
+                    'total_points' => 0,
+                    'accuracy_rate' => 0,
+                    'rank_title' => $clan['rank_title'],
+                ]
+            );
+        }
+
+        $testClan = Clan::first();
 
         User::updateOrCreate([
             'email' => 'rockstar@gmail.com',
@@ -34,7 +45,7 @@ class DatabaseSeeder extends Seeder
             'role' => 'admin',
             'country' => 'Bangladesh',
             'district' => 'Dhaka',
-            'clan_id' => $defaultClan->id,
+            'clan_id' => $testClan->id,
             'is_private' => false,
             'is_banned' => false,
         ]);
@@ -47,7 +58,7 @@ class DatabaseSeeder extends Seeder
             'role' => 'moderator',
             'country' => 'Bangladesh',
             'district' => 'Dhaka',
-            'clan_id' => $defaultClan->id,
+            'clan_id' => $testClan->id,
             'is_private' => false,
             'is_banned' => false,
         ]);
@@ -60,7 +71,7 @@ class DatabaseSeeder extends Seeder
             'role' => 'citizen',
             'country' => 'Bangladesh',
             'district' => 'Dhaka',
-            'clan_id' => $defaultClan->id,
+            'clan_id' => $testClan->id,
             'is_private' => false,
             'is_banned' => false,
         ]);

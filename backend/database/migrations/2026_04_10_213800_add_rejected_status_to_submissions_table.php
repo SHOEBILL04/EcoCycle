@@ -12,9 +12,9 @@ return new class extends Migration
      */
     public function up(): void
     {
-        // For MySQL, we need to modify the enum column. 
-        // We add REJECTED to the existing list.
-        DB::statement("ALTER TABLE submissions MODIFY COLUMN status ENUM('SUBMITTED', 'PENDING', 'RESOLVED', 'REWARDED', 'FLAGGED', 'REJECTED') NOT NULL DEFAULT 'SUBMITTED'");
+        // For PostgreSQL, we use ALTER COLUMN ... TYPE
+        DB::statement("ALTER TABLE submissions ALTER COLUMN status TYPE VARCHAR(255)");
+        DB::statement("ALTER TABLE submissions ALTER COLUMN status SET DEFAULT 'SUBMITTED'");
     }
 
     /**
@@ -22,6 +22,8 @@ return new class extends Migration
      */
     public function down(): void
     {
-        DB::statement("ALTER TABLE submissions MODIFY COLUMN status ENUM('SUBMITTED', 'PENDING', 'RESOLVED', 'REWARDED', 'FLAGGED') NOT NULL DEFAULT 'SUBMITTED'");
+        // For PostgreSQL, we use ALTER COLUMN ... TYPE
+        DB::statement("ALTER TABLE submissions ALTER COLUMN status TYPE VARCHAR(255)");
+        DB::statement("ALTER TABLE submissions ALTER COLUMN status SET DEFAULT 'SUBMITTED'");
     }
 };
