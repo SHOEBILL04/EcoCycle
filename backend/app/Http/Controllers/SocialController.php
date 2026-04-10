@@ -60,44 +60,76 @@ class SocialController extends Controller
     }
 
     /**
-     * Activity feed: recent REWARDED submissions from followed, non-private users.
-     *
-     * Each feed item includes:
-     *  - category, confidence score  (spec requirement)
-     *  - points_awarded              (spec requirement — resolved from the Transaction record)
-     *
-     * Privacy enforcement: users with is_private=true are excluded regardless of follow status.
+     * Activity feed: recent submissions globally.
      */
     public function feed(Request $request)
     {
         $user = $request->user();
 
-        $followingIds = Follow::where('follower_id', $user->id)->pluck('followed_id');
+        $followingIds = Follow::where('follower_id', $user->id)->pluck('followed_id')->toArray();
 
         $submissions = Submission::with([
                 'user:id,name,is_private,total_points',
-                // Eager-load only the reward transaction for each submission
                 'transactions' => fn ($q) => $q->where('type', 'reward')->select('submission_id', 'points'),
             ])
-            ->whereIn('user_id', $followingIds)
             ->whereHas('user', fn ($q) => $q->where('is_private', false))
-            ->where('status', 'REWARDED')
             ->orderBy('created_at', 'desc')
             ->take(50)
             ->get();
 
-        // Map to the spec-required feed shape
         $feed = $submissions->map(fn (Submission $s) => [
             'id'                   => $s->id,
-            'user'                 => $s->user,
+            'user'                 => $s->user->name ?? 'Unknown',
+            'avatar'               => strtoupper(substr($s->user->name ?? 'U', 0, 2)),
             'category'             => $s->category,
             'subcategory'          => $s->subcategory,
             'confidence_score'     => $s->confidence_score,
             'secondary_confidence' => $s->secondary_confidence_score,
             'points_awarded'       => $s->transactions->first()?->points ?? 0,
+            'status'               => $s->status,
             'created_at'           => $s->created_at,
         ]);
 
-        return response()->json(['feed' => $feed]);
+        $following = User::whereIn('id', $followingIds)->select('id', 'name')->get()->map(fn ($u) => [
+            'name' => $u->name,
+            'avatar' => strtoupper(substr($u->name, 0, 2)),
+            'color' => 'from-emerald-400 to-emerald-600',
+            'active' => true,
+        ]);
+
+        $startOfDay = now()->startOfDay();
+        
+        $todayClassifications = Submission::where('created_at', '>=', $startOfDay)->count();
+        $todayPoints = Transaction::where('type', 'reward')->where('created_at', '>=', $startOfDay)->sum('points');
+        $highConfidence = Submission::where('created_at', '>=', $startOfDay)->where('confidence_score', '>=', 0.8)->count();
+        $disputes = Submission::where('created_at', '>=', $startOfDay)->where('status', 'PENDING')->count();
+
+        $stats = [
+            ['label' => 'Classifications', 'val' => $todayClassifications, 'color' => 'text-gray-900'],
+            ['label' => 'Total Pts Earned', 'val' => $todayPoints, 'color' => 'text-emerald-600'],
+            ['label' => 'High Confidence', 'val' => $highConfidence, 'color' => 'text-emerald-600'],
+            ['label' => 'Disputes', 'val' => $disputes, 'color' => 'text-amber-600'],
+        ];
+
+        $trendingRaw = \Illuminate\Support\Facades\DB::table('submissions')
+            ->select('category', \Illuminate\Support\Facades\DB::raw('count(*) as count'))
+            ->groupBy('category')
+            ->orderBy('count', 'desc')
+            ->take(4)
+            ->get();
+            
+        $totalCats = $trendingRaw->sum('count') ?: 1;
+        $trending = $trendingRaw->map(fn($t) => [
+            'cat' => $t->category ?: 'Unknown',
+            'count' => $t->count,
+            'pct' => round(($t->count / $totalCats) * 100),
+        ]);
+
+        return response()->json([
+            'feed' => $feed,
+            'following' => $following,
+            'stats' => $stats,
+            'trending' => $trending,
+        ]);
     }
 }

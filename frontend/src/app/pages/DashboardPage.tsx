@@ -249,7 +249,7 @@ export function DashboardPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">
-            Welcome back, Alex! 👋
+            Welcome back, {stats?.name ? stats.name.split(' ')[0] : 'Citizen'}! 👋
           </h1>
           <p className="text-gray-500 text-sm mt-0.5">
             Here's your eco-impact summary for today
@@ -513,17 +513,17 @@ export function DashboardPage() {
                         className="flex items-center gap-3 p-4 hover:bg-gray-50 transition-colors"
                       >
                         <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center text-xl flex-shrink-0">
-                          {emoji}
+                          {sub.emoji || emoji}
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-0.5">
                             <span className="font-semibold text-gray-900 text-sm truncate">
-                              {sub.subcategory || categoryUpper}
+                              {sub.item || sub.subcategory || categoryUpper}
                             </span>
                             <span
-                              className={`text-xs px-2 py-0.5 rounded-full font-medium ${categoryColorMap[col]}`}
+                              className={`text-xs px-2 py-0.5 rounded-full font-medium ${categoryColorMap[sub.color || col]}`}
                             >
-                              {categoryUpper}
+                              {sub.category || categoryUpper}
                             </span>
                           </div>
                           <div className="flex items-center gap-3">
@@ -533,14 +533,14 @@ export function DashboardPage() {
                                 <div
                                   className="h-full rounded-full"
                                   style={{
-                                    width: `${score * 100}%`,
+                                    width: `${(sub.confidence || score) * 100}%`,
                                     backgroundColor:
-                                      score >= 0.75 ? "#10b981" : "#f59e0b",
+                                      (sub.confidence || score) >= 0.75 ? "#10b981" : "#f59e0b",
                                   }}
                                 ></div>
                               </div>
                               <span className="text-xs text-gray-400">
-                                {Math.round(score * 100)}%
+                                {Math.round((sub.confidence || score) * 100)}%
                               </span>
                             </div>
                           </div>
@@ -549,6 +549,7 @@ export function DashboardPage() {
                           <div className="text-right">
                             {sub.status === "approved" || sub.status === "COMPLETED" ? (
                               <span className="text-sm font-bold text-emerald-600">
+                                +{sub.points || 0} pts
                                 +{sub.points || 0}
                               </span>
                             ) : (
@@ -622,11 +623,7 @@ export function DashboardPage() {
               <Trophy className="w-4 h-4 text-amber-400" />
             </div>
             <div className="space-y-2">
-              {[
-                { rank: 125, name: "EcoStar", pts: 2910, diff: -70 },
-                { rank: 127, name: "Alex Johnson", pts: 2840, isYou: true },
-                { rank: 128, name: "GreenPath", pts: 2780, diff: +60 },
-              ].map((u: any, i: number) => (
+              {(leaderboard_nearby || []).map((u: any, i: number) => (
                 <div
                   key={i}
                   className={`flex items-center gap-2 p-2 rounded-xl text-sm ${u.isYou ? "bg-emerald-50 border border-emerald-200" : ""}`}

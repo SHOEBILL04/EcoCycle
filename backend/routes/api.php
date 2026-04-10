@@ -24,6 +24,7 @@ Route::middleware(['auth:sanctum', 'not.banned'])->group(function () {
     Route::get('/leaderboard',  [\App\Http\Controllers\LeaderboardController::class, 'index']);
     Route::get('/notifications', [NotificationController::class, 'index']);
     Route::patch('/notifications/{id}/read', [NotificationController::class, 'markRead']);
+    Route::get('/profile/stats', [\App\Http\Controllers\ProfileController::class, 'stats']);
 
     // Social layer
     Route::post('/follow/{id}',   [\App\Http\Controllers\SocialController::class, 'follow']);
@@ -31,6 +32,7 @@ Route::middleware(['auth:sanctum', 'not.banned'])->group(function () {
     Route::get('/feed',           [\App\Http\Controllers\SocialController::class, 'feed']);
 
     // Redemption
+    Route::get('/rewards', [\App\Http\Controllers\RewardController::class, 'index']);
     Route::post('/redeem', [\App\Http\Controllers\RewardController::class, 'redeem']);
 
     // ── Moderator & Admin ────────────────────────────────────────────────────
