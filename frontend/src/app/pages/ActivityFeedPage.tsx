@@ -12,6 +12,7 @@ import {
   Leaf,
   TrendingUp,
 } from "lucide-react";
+import { parseJsonResponse } from "../lib/api";
 
 function timeAgo(dateParam: string | Date): string {
   const date = typeof dateParam === 'object' ? dateParam : new Date(dateParam);
@@ -53,9 +54,12 @@ export function ActivityFeedPage() {
 
   useEffect(() => {
     fetch(`${import.meta.env.VITE_API_URL}/feed`, {
-      headers: { 'Authorization': `Bearer ${localStorage.getItem('access_token')}` }
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+        'Accept': 'application/json',
+      }
     })
-    .then(res => res.json())
+    .then(parseJsonResponse)
     .then(data => {
       setFeedItems(data.feed || []);
       setFollowing(data.following || []);

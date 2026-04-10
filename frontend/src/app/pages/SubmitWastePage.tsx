@@ -16,6 +16,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
+import { ApiError, parseJsonBody, parseJsonResponse } from "../lib/api";
 
 type ClassificationStatus = "idle" | "analyzing" | "result" | "dispute";
 type ProbabilityMap = Record<string, number>;
@@ -192,30 +193,30 @@ export function SubmitWastePage() {
         return;
       }
 
-      const payload = await response.json();
-      
-      if (response.status === 422 && payload.status === 'FLAGGED') {
-        const isPenalty = payload.penalty !== undefined;
-        const fakeResult = {
-          category: 'Unknown', subcategory: isPenalty ? 'Cheating Detected' : 'Fraud detected', confidence: 0, 
-          emoji: "⚠️", color: isPenalty ? "red" : "amber", bg: isPenalty ? "bg-red-50" : "bg-amber-50", border: isPenalty ? "border-red-200" : "border-amber-200", 
-          badge: isPenalty ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700", points: payload.penalty ? -payload.penalty : 0, status: "dispute",
-          modelA: { category: '-', confidence: 0 },
-          modelB: { category: '-', confidence: 0 },
-          tips: [payload.message],
-          isDisputeResolved: false,
-          isPenalty: isPenalty,
-          message: payload.message
-        };
-        setResult(fakeResult as any);
-        setStatus("dispute");
-        window.dispatchEvent(new CustomEvent('user-updated'));
-        return;
+      if (response.status === 422) {
+        const payload = await parseJsonBody(response);
+
+        if (payload.status === 'FLAGGED') {
+          const isPenalty = payload.penalty !== undefined;
+          const fakeResult = {
+            category: 'Unknown', subcategory: isPenalty ? 'Cheating Detected' : 'Fraud detected', confidence: 0,
+            emoji: "⚠️", color: isPenalty ? "red" : "amber", bg: isPenalty ? "bg-red-50" : "bg-amber-50", border: isPenalty ? "border-red-200" : "border-amber-200",
+            badge: isPenalty ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700", points: payload.penalty ? -payload.penalty : 0, status: "dispute",
+            modelA: { category: '-', confidence: 0 },
+            modelB: { category: '-', confidence: 0 },
+            tips: [payload.message],
+            isDisputeResolved: false,
+            isPenalty: isPenalty,
+            message: payload.message
+          };
+          setResult(fakeResult as any);
+          setStatus("dispute");
+          window.dispatchEvent(new CustomEvent('user-updated'));
+          return;
+        }
       }
-      
-      if (!response.ok) {
-        throw new Error('Classification failed');
-      }
+
+      const payload = await parseJsonResponse(response);
 
       const { submission, points_awarded, status: responseStatus, message } = payload;
       const isHigh = responseStatus === 'REWARDED' || responseStatus === 'REWARDED_VIA_DISPUTE';
@@ -261,9 +262,11 @@ export function SubmitWastePage() {
       clearInterval(interval);
       setStatus("idle");
       console.error(err);
-      alert(err.message === 'Classification failed' 
-        ? 'Server encountered an error during analysis. Please try again later.' 
-        : `Error: ${err.message || 'Failed to analyze image'}`);
+      const message =
+        err instanceof ApiError
+          ? err.payload?.message || err.payload?.error || err.message
+          : err.message || 'Failed to analyze image';
+      alert(`Error: ${message}`);
     }
   };
 
