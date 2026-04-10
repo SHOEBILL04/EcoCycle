@@ -101,6 +101,8 @@ const categoryColorMap: Record<string, string> = {
 import { useState, useEffect } from "react";
 
 export function DashboardPage() {
+  const [submissions, setSubmissions] = useState<any[]>([]);
+  const [clanAlerts, setClanAlerts] = useState<any[]>([]);
   const [data, setData] = useState<any>(null);
   const [clanAlerts, setClanAlerts] = useState<any[]>([]);
 
@@ -116,6 +118,12 @@ export function DashboardPage() {
         if (payload.clan_alerts) {
             setClanAlerts(payload.clan_alerts);
         }
+    .then(data => {
+        setSubmissions(data.recent_submissions);
+        if (data.clan_alerts) {
+            setClanAlerts(data.clan_alerts);
+        }
+        setData(data);
     })
     .catch(console.error);
   }, []);
@@ -451,6 +459,70 @@ export function DashboardPage() {
                                   (sub.confidence || score) >= 0.75 ? "#10b981" : "#f59e0b",
                               }}
                             ></div>
+            {submissions.length === 0 ? (
+              <div className="p-8 text-center text-gray-400">
+                  <Camera className="w-10 h-10 mx-auto mb-3 opacity-20" />
+                  <p className="text-sm">No submissions yet.</p>
+                  <p className="text-xs mt-1">Classify your first image to get started!</p>
+              </div>
+            ) : (
+                submissions.map((sub: any) => {
+                    const isDispute = sub.status === 'PENDING' || sub.status === 'FLAGGED';
+                    const categoryUpper = sub.category ? sub.category.charAt(0).toUpperCase() + sub.category.slice(1) : 'Unknown';
+                    const emoji = sub.category === 'organic' ? '🌱' : sub.category === 'e-waste' ? '💻' : sub.category === 'hazardous' ? '⚠️' : '♻️';
+                    const col = sub.category === 'organic' ? 'green' : sub.category === 'e-waste' ? 'purple' : sub.category === 'hazardous' ? 'red' : 'blue';
+                    const score = parseFloat(sub.confidence_score) || 0;
+                    
+                    return (
+                      <div
+                        key={sub.id}
+                        className="flex items-center gap-3 p-4 hover:bg-gray-50 transition-colors"
+                      >
+                        <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center text-xl flex-shrink-0">
+                          {emoji}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-0.5">
+                            <span className="font-semibold text-gray-900 text-sm truncate">
+                              {sub.subcategory || categoryUpper}
+                            </span>
+                            <span
+                              className={`text-xs px-2 py-0.5 rounded-full font-medium ${categoryColorMap[col]}`}
+                            >
+                              {categoryUpper}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <span className="text-xs text-gray-400">ID #{sub.id}</span>
+                            <div className="flex items-center gap-1">
+                              <div className="h-1 w-16 bg-gray-100 rounded-full overflow-hidden">
+                                <div
+                                  className="h-full rounded-full"
+                                  style={{
+                                    width: `${score * 100}%`,
+                                    backgroundColor:
+                                      score >= 0.75 ? "#10b981" : "#f59e0b",
+                                  }}
+                                ></div>
+                              </div>
+                              <span className="text-xs text-gray-400">
+                                {Math.round(score * 100)}%
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3 flex-shrink-0">
+                          <div className="text-right">
+                            {!isDispute ? (
+                              <span className="text-sm font-bold text-emerald-600">
+                                Authenticated
+                              </span>
+                            ) : (
+                              <span className="text-xs font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full flex items-center gap-1">
+                                <AlertTriangle className="w-3 h-3" />
+                                Review
+                              </span>
+                            )}
                           </div>
                           <span className="text-xs text-gray-400">
                             {Math.round((sub.confidence || score) * 100)}%
@@ -481,6 +553,8 @@ export function DashboardPage() {
                   <p className="text-sm">No submissions yet.</p>
                   <p className="text-xs mt-1">Classify your first image to get started!</p>
               </div>
+                    );
+                })
             )}
           </div>
         </div>

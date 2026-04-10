@@ -201,6 +201,7 @@ class DashboardController extends Controller
             'points_history' => $pointsHistory,
             'category_data' => $categoryData,
             'leaderboard_nearby' => $leaderboardNearby,
+            'leaderboard_nearby' => $nearbyUsers,
             'badges' => $badges,
         ]);
     }
