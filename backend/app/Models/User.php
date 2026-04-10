@@ -80,6 +80,8 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'banned_at' => 'datetime',
+            'is_banned' => 'boolean',
+            'is_private' => 'boolean',
             'settings' => 'array',
         ];
     }
