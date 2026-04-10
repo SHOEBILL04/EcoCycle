@@ -109,23 +109,78 @@ export function SubmitWastePage() {
     if (file && file.type.startsWith("image/")) handleFile(file);
   };
 
-  const handleAnalyze = () => {
+  const handleAnalyze = async () => {
+    if (!uploadedImage) return;
     setStatus("analyzing");
     setAnalysisProgress(0);
+    
+    // Start an artificial progress bar
     const interval = setInterval(() => {
-      setAnalysisProgress((prev) => {
-        if (prev >= 100) {
-          clearInterval(interval);
-          // Random: 70% high confidence, 30% low
-          const isHigh = Math.random() > 0.3;
-          const res = isHigh ? mockResults.high : mockResults.low;
-          setResult(res);
-          setStatus(res.status === "dispute" ? "dispute" : "result");
-          return 100;
-        }
-        return prev + 8;
+      setAnalysisProgress((prev) => (prev >= 80 ? 80 : prev + 10));
+    }, 150);
+
+    try {
+      const response = await fetch('http://localhost:8000/api/submit-waste', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+        },
+        body: JSON.stringify({ image_b64: uploadedImage })
       });
-    }, 120);
+
+      clearInterval(interval);
+      setAnalysisProgress(100);
+      
+      const payload = await response.json();
+      
+      if (response.status === 422 && payload.status === 'FLAGGED') {
+        const fakeResult = {
+          category: 'Unknown', subcategory: 'Fraud detected', confidence: 0, 
+          emoji: "⚠️", color: "amber", bg: "bg-amber-50", border: "border-amber-200", 
+          badge: "bg-amber-100 text-amber-700", points: 0, status: "dispute",
+          modelA: { category: '-', confidence: 0 },
+          modelB: { category: '-', confidence: 0 },
+          tips: [payload.message]
+        };
+        setResult(fakeResult as any);
+        setStatus("dispute");
+        return;
+      }
+      
+      if (!response.ok) {
+        throw new Error('Classification failed');
+      }
+
+      const { submission, points_awarded } = payload;
+      const isHigh = submission.status === 'REWARDED';
+      
+      // Map API result to fakeResult shape
+      const fakeResult = {
+        category: submission.category.charAt(0).toUpperCase() + submission.category.slice(1),
+        subcategory: "Recognized System Category",
+        confidence: parseFloat(submission.confidence_score),
+        emoji: submission.category === 'organic' ? '🌱' : submission.category === 'e-waste' ? '💻' : submission.category === 'hazardous' ? '⚠️' : '♻️',
+        bg: isHigh ? 'bg-emerald-50' : 'bg-amber-50',
+        border: isHigh ? 'border-emerald-200' : 'border-amber-200',
+        badge: isHigh ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700',
+        points: points_awarded || 0,
+        status: isHigh ? "approved" : "dispute",
+        modelA: { category: submission.category, confidence: parseFloat(submission.confidence_score) },
+        modelB: { category: submission.category, confidence: parseFloat(submission.secondary_confidence_score || '0') },
+        tips: ["Check your profile points!"]
+      };
+      
+      setResult(fakeResult as any);
+      setStatus(isHigh ? "result" : "dispute");
+
+    } catch (err) {
+      clearInterval(interval);
+      setStatus("idle");
+      console.error(err);
+      alert('Failed to analyze image with the server. Please sign in first.');
+    }
   };
 
   const handleReset = () => {
