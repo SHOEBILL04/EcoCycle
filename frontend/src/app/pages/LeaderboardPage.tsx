@@ -13,6 +13,7 @@ import {
   Globe,
   Loader2,
 } from "lucide-react";
+import { parseJsonResponse } from "../lib/api";
 
 type Tab = "global" | "clan";
 type Period = "all-time" | "monthly" | "weekly" | "daily";
@@ -625,13 +626,12 @@ export function LeaderboardPage() {
     fetch(`${import.meta.env.VITE_API_URL}/leaderboard?period=${period}`, {
       headers: {
         Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+        Accept: "application/json",
       },
     })
-      .then((res) => res.json())
+      .then(parseJsonResponse)
       .then((payload) => {
-        if (!payload.error) {
-          setData(payload);
-        }
+        setData(payload);
         setLoading(false);
       })
       .catch((err) => {

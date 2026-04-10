@@ -43,6 +43,7 @@ const categoryColorMap: Record<string, string> = {
 };
 
 import { useState, useEffect } from "react";
+import { parseJsonResponse } from "../lib/api";
 
 export function DashboardPage() {
   const [submissions, setSubmissions] = useState<any[]>([]);
@@ -54,10 +55,11 @@ export function DashboardPage() {
         const token = localStorage.getItem('access_token');
         fetch(`${import.meta.env.VITE_API_URL}/dashboard`, {
             headers: {
-                'Authorization': `Bearer ${token}`
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/json',
             }
         })
-        .then(res => res.json())
+        .then(parseJsonResponse)
         .then(data => {
             setData(data);
             if (data.recent_submissions) {
