@@ -13,6 +13,8 @@ import {
   CheckCircle,
   AlertTriangle,
   Globe,
+  Shield,
+  Users,
 } from "lucide-react";
 import {
   RadarChart,
@@ -119,12 +121,14 @@ const catColorMap: Record<string, string> = {
 
 export function ProfilePage() {
   const [isFollowing, setIsFollowing] = useState(false);
-  const [activeTab, setActiveTab] = useState<"activity" | "stats" | "badges">(
+  const [activeTab, setActiveTab] = useState<"activity" | "stats" | "badges" | "clan">(
     "activity"
   );
   const [user, setUser] = useState<any>(null);
   const [stats, setStats] = useState<any>(null);
   const [submissions, setSubmissions] = useState<any[]>([]);
+
+  const [myClanData, setMyClanData] = useState<any[]>([]);
 
   useEffect(() => {
     fetch('http://localhost:8000/api/user', {
@@ -140,7 +144,16 @@ export function ProfilePage() {
     .then(res => res.json())
     .then(data => {
         setStats(data.stats);
-        setSubmissions(data.recent_submissions);
+        setSubmissions(data.recent_submissions || []);
+    })
+    .catch(console.error);
+
+    fetch('http://localhost:8000/api/leaderboard', {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('access_token')}` }
+    })
+    .then(res => res.json())
+    .then(data => {
+        setMyClanData(data.my_clan || []);
     })
     .catch(console.error);
   }, []);
@@ -242,10 +255,10 @@ export function ProfilePage() {
 
       {/* Tabs */}
       <div className="flex gap-2 mb-5 bg-white rounded-xl border border-gray-100 p-1 shadow-sm w-fit">
-        {(["activity", "stats", "badges"] as const).map((tab) => (
+        {(["activity", "stats", "badges", "clan"] as const).map((tab) => (
           <button
             key={tab}
-            onClick={() => setActiveTab(tab)}
+            onClick={() => setActiveTab(tab as any)}
             className={`px-5 py-2 rounded-lg text-sm font-medium capitalize transition-all ${
               activeTab === tab
                 ? "bg-emerald-500 text-white shadow-md"
@@ -484,6 +497,61 @@ export function ProfilePage() {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+      {/* My Clan tab */}
+      {activeTab === "clan" && (
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+          <div className="p-5 border-b border-gray-50">
+            <h2 className="font-bold text-gray-900 flex items-center gap-2">
+              <Shield className="w-5 h-5 text-emerald-500" />
+              Clan Roster
+            </h2>
+            <p className="text-xs text-gray-500 mt-1">See how you match up locally.</p>
+          </div>
+          <div className="divide-y divide-gray-50">
+            {myClanData.length === 0 ? (
+              <div className="p-8 text-center text-gray-400">
+                <Users className="w-10 h-10 mx-auto mb-3 opacity-20" />
+                <p className="text-sm">You are not currently in a clan.</p>
+              </div>
+            ) : (
+              myClanData.map((member) => (
+                <div
+                  key={member.rank}
+                  className={`flex items-center gap-4 px-6 py-4 hover:bg-gray-50 transition-colors ${
+                    member.isYou ? "bg-emerald-50/50" : ""
+                  }`}
+                >
+                  <div className="w-8 flex-shrink-0 text-center">
+                    <span className="text-sm font-bold text-gray-700">#{member.rank}</span>
+                  </div>
+                  
+                  <div className={`w-10 h-10 rounded-full bg-gradient-to-br ${member.color || 'from-gray-400 to-gray-500'} flex items-center justify-center text-white font-bold flex-shrink-0`}>
+                    {member.avatar}
+                  </div>
+                  
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-0.5 mt-0.5">
+                      <span className={`text-sm font-semibold truncate ${member.isYou ? "text-emerald-700" : "text-gray-900"}`}>
+                        {member.name}
+                      </span>
+                      {member.isYou && (
+                        <span className="text-xs bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full font-medium">
+                          You
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <div className="text-right">
+                    <div className="text-sm font-bold text-emerald-600">{member.points.toLocaleString()}</div>
+                    <div className="text-xs text-gray-400">pts</div>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
       )}

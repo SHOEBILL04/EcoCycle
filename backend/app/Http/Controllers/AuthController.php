@@ -20,7 +20,10 @@ class AuthController extends Controller
             'sub_district' => 'required|string|max:255',
         ]);
 
-        $clan = \App\Models\Clan::firstOrCreate(['name' => $request->sub_district]);
+        $area = trim($request->sub_district);
+        $clanName = ucfirst(strtolower($area)) . ' Titans';
+        
+        $clan = \App\Models\Clan::firstOrCreate(['name' => $clanName]);
 
         $user = User::create([
             'name' => $request->name,
