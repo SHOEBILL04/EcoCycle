@@ -20,8 +20,10 @@ class SubmissionController extends Controller
     public function submit(Request $request)
     {
         $request->validate([
-            'image_b64' => 'required|string',
-            'engine'    => 'nullable|string|in:model-a,model-b,dual',
+            'image_b64'     => 'required|string',
+            'engine'        => 'nullable|string|in:model-a,model-b,dual,teachable-machine',
+            'tm_category'   => 'nullable|string',
+            'tm_confidence' => 'nullable|numeric',
         ]);
 
         $user  = $request->user();
@@ -75,10 +77,26 @@ class SubmissionController extends Controller
             }
         }
 
-        // ── Classify with both engines ────────────────────────────────────────
-        $classification = $this->classifier->classifyBase64($b64);
-        $threshold      = (float) env('CONFIDENCE_THRESHOLD', 0.85);
+        // ── Classify with engines or bypass for Teachable Machine ─────────────
         $engineChoice   = $request->input('engine', 'dual');
+        $threshold      = (float) env('CONFIDENCE_THRESHOLD', 0.85);
+
+        if ($engineChoice === 'teachable-machine') {
+            $tmCategory = strtolower($request->input('tm_category', 'unknown'));
+            $tmConfidence = (float) $request->input('tm_confidence', 0.0);
+            
+            $classification = [
+                'category' => $tmCategory,
+                'subcategory' => 'Custom TM Model',
+                'primary_confidence' => $tmConfidence,
+                'secondary_confidence' => 0.0,
+                'secondary_category' => 'unknown',
+                'primary_engine' => 'Teachable Machine',
+                'secondary_engine' => 'None',
+            ];
+        } else {
+            $classification = $this->classifier->classifyBase64($b64);
+        }
 
         if ($engineChoice === 'model-b') {
             $primaryScore = $classification['secondary_confidence'];

@@ -1,4 +1,6 @@
 import { useState, useRef } from "react";
+// @ts-ignore
+import * as tmImage from "@teachablemachine/image";
 import {
   Upload,
   Camera,
@@ -39,6 +41,13 @@ const engines = [
     desc: "Both models, automatic dispute resolution",
     badge: "Recommended",
     color: "purple",
+  },
+  {
+    id: "teachable-machine",
+    name: "Teachable Machine",
+    desc: "Custom trained TensorFlow.js model natively loaded",
+    badge: "Custom",
+    color: "amber",
   },
 ];
 
@@ -96,6 +105,7 @@ export function SubmitWastePage() {
   const [status, setStatus] = useState<ClassificationStatus>("idle");
   const [result, setResult] = useState<(typeof mockResults)["high"] | null>(null);
   const [analysisProgress, setAnalysisProgress] = useState(0);
+  const [tmUrl, setTmUrl] = useState("https://teachablemachine.withgoogle.com/models/ENTER_YOUR_ID_HERE/");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFile = (file: File) => {
@@ -126,6 +136,32 @@ export function SubmitWastePage() {
     }, 150);
 
     try {
+      let tmCategory = null;
+      let tmConfidence = null;
+
+      if (selectedEngine === "teachable-machine") {
+        try {
+          const modelURL = tmUrl.endsWith('/') ? tmUrl + "model.json" : tmUrl + "/model.json";
+          const metadataURL = tmUrl.endsWith('/') ? tmUrl + "metadata.json" : tmUrl + "/metadata.json";
+          
+          const model = await tmImage.load(modelURL, metadataURL);
+          const img = new Image();
+          img.src = uploadedImage;
+          await new Promise((resolve) => { img.onload = resolve; });
+          
+          const prediction = await model.predict(img);
+          prediction.sort((a, b) => b.probability - a.probability);
+          
+          tmCategory = prediction[0].className;
+          tmConfidence = prediction[0].probability;
+        } catch (e) {
+          clearInterval(interval);
+          setStatus("idle");
+          alert("Failed to load or execute your Teachable Machine model! Is the URL correct?");
+          return;
+        }
+      }
+
       const response = await fetch('http://localhost:8000/api/submit-waste', {
         method: 'POST',
         headers: {
@@ -133,7 +169,12 @@ export function SubmitWastePage() {
           'Accept': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('access_token')}`
         },
-        body: JSON.stringify({ image_b64: uploadedImage, engine: selectedEngine })
+        body: JSON.stringify({ 
+            image_b64: uploadedImage, 
+            engine: selectedEngine,
+            ...(tmCategory && { tm_category: tmCategory }),
+            ...(tmConfidence !== null && { tm_confidence: tmConfidence })
+        })
       });
 
       clearInterval(interval);
@@ -256,7 +297,9 @@ export function SubmitWastePage() {
                           ? "border-emerald-500 bg-emerald-500"
                           : engine.color === "blue"
                             ? "border-blue-500 bg-blue-500"
-                            : "border-purple-500 bg-purple-500"
+                            : engine.color === "purple"
+                              ? "border-purple-500 bg-purple-500"
+                              : "border-amber-500 bg-amber-500"
                         : "border-gray-300"
                     }`}
                   >
@@ -275,7 +318,9 @@ export function SubmitWastePage() {
                             ? "bg-emerald-100 text-emerald-700"
                             : engine.color === "blue"
                               ? "bg-blue-100 text-blue-700"
-                              : "bg-purple-100 text-purple-700"
+                              : engine.color === "purple"
+                                ? "bg-purple-100 text-purple-700"
+                                : "bg-amber-100 text-amber-700"
                         }`}
                       >
                         {engine.badge}
@@ -293,6 +338,25 @@ export function SubmitWastePage() {
                 configuration. Scores below this trigger dispute resolution.
               </span>
             </div>
+
+            {selectedEngine === "teachable-machine" && (
+              <div className="mt-4 animate-in fade-in slide-in-from-top-2">
+                <label className="block text-sm font-semibold text-gray-900 mb-1.5">
+                  Paste Model URL
+                </label>
+                <input
+                  type="text"
+                  value={tmUrl}
+                  onChange={(e) => setTmUrl(e.target.value)}
+                  className="w-full text-sm border-gray-300 border bg-white rounded-xl px-3 py-2.5 outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-all text-gray-700"
+                  placeholder="https://teachablemachine.withgoogle.com/models/.../"
+                />
+                <p className="text-xs text-gray-400 mt-1.5 ml-1 leading-snug">
+                  Publish your TM Image Model and paste the shareable link above! 
+                  It will load directly inside your browser.
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Tips */}

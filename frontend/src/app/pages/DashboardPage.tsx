@@ -120,13 +120,6 @@ export function DashboardPage() {
         }
         if (data.clan_alerts) {
             setClanAlerts(data.clan_alerts);
-    .then(payload => {
-        setData(payload);
-        if (payload.clan_alerts) {
-            setClanAlerts(payload.clan_alerts);
-        }
-        if (payload.recent_submissions) {
-            setSubmissions(payload.recent_submissions);
         }
     })
     .catch(console.error);
