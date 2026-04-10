@@ -10,23 +10,47 @@ const perks = [
 ];
 
 const locations = {
-  "Bangladesh": ["Dhanmondi", "Mirpur", "Gulshan", "Banani", "Uttara", "Mohammadpur", "Badda"],
-  "USA": ["Manhattan", "Brooklyn", "Queens", "Bronx", "Staten Island", "Downtown LA", "Hollywood"],
-  "UK": ["Camden", "Greenwich", "Hackney", "Islington", "Kensington", "Westminster"],
-  "India": ["Andheri", "Bandra", "Colaba", "Juhu", "Koramangala", "Indiranagar", "Salt Lake"],
-  "Canada": ["Downtown Toronto", "Scarborough", "North York", "Etobicoke", "Kitsilano", "Yaletown"]
+  "Bangladesh": {
+    "Dhaka": [
+      "Adabor", "Badda", "Banani", "Bangshal", "Bimanbandar", "Cantonment", "Chawkbazar", "Dakshinkhan", 
+      "Darus Salam", "Demra", "Dhamrai", "Dhanmondi", "Dohar", "Gendaria", "Gulshan", "Hazaribagh", 
+      "Jatrabari", "Kadamtali", "Kafrul", "Kalabagan", "Kamrangirchar", "Keraniganj", "Khilgaon", 
+      "Khilkhet", "Kotwali", "Lalbagh", "Mirpur", "Mohammadpur", "Motijheel", "Nawabganj", "New Market", 
+      "Pallabi", "Paltan", "Ramna", "Rampura", "Sabujbagh", "Savar", "Shah Ali", "Shahbagh", 
+      "Sher-e-Bangla Nagar", "Shyampur", "Sutrapur", "Tejgaon", "Tejgaon Industrial Area", "Turag", 
+      "Uttara", "Uttarkhan", "Vasantek", "Wari"
+    ],
+    "Chittagong": ["Halishahar", "Pahartali", "Kotwali"]
+  },
+  "USA": {
+    "New York": ["Manhattan", "Brooklyn", "Queens", "Bronx", "Staten Island"],
+    "California": ["Downtown LA", "Hollywood"]
+  },
+  "UK": {
+    "London": ["Camden", "Greenwich", "Hackney", "Islington", "Kensington", "Westminster"]
+  },
+  "India": {
+    "Maharashtra": ["Andheri", "Bandra", "Colaba", "Juhu"],
+    "Karnataka": ["Koramangala", "Indiranagar"],
+    "West Bengal": ["Salt Lake"]
+  },
+  "Canada": {
+    "Ontario": ["Downtown Toronto", "Scarborough", "North York", "Etobicoke"],
+    "British Columbia": ["Kitsilano", "Yaletown"]
+  }
 };
 
 export function SignUpPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [step, setStep] = useState(1);
   const [country, setCountry] = useState("Bangladesh");
+  const [district, setDistrict] = useState("Dhaka");
   const [form, setForm] = useState({
     name: "",
     username: "",
     email: "",
     password: "",
-    area: "",
+    sub_district: "",
     agree: false,
   });
   const navigate = useNavigate();
@@ -55,7 +79,9 @@ export function SignUpPage() {
             email: form.email,
             password: form.password,
             password_confirmation: form.password,
-            area: form.area,
+            country: country,
+            district: district,
+            sub_district: form.sub_district,
           })
         });
 
@@ -227,8 +253,11 @@ export function SignUpPage() {
                       <select
                         value={country}
                         onChange={(e) => {
-                          setCountry(e.target.value);
-                          setForm(f => ({ ...f, area: "" }));
+                          const newCountry = e.target.value;
+                          setCountry(newCountry);
+                          const firstDistrict = Object.keys(locations[newCountry as keyof typeof locations])[0];
+                          setDistrict(firstDistrict);
+                          setForm(f => ({ ...f, sub_district: "" }));
                         }}
                         className="w-full bg-white/10 border border-white/20 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm [&>option]:text-black"
                         required
@@ -239,17 +268,35 @@ export function SignUpPage() {
 
                     <div>
                       <label className="block text-xs font-medium text-gray-300 mb-1.5">
-                        Community / Area
+                        District
                       </label>
                       <select
-                        name="area"
-                        value={form.area}
+                        value={district}
+                        onChange={(e) => {
+                          setDistrict(e.target.value);
+                          setForm(f => ({ ...f, sub_district: "" }));
+                        }}
+                        className="w-full bg-white/10 border border-white/20 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm [&>option]:text-black"
+                        required
+                      >
+                        {Object.keys(locations[country as keyof typeof locations]).map(d => <option key={d} value={d}>{d}</option>)}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-gray-300 mb-1.5">
+                        Sub-district (Clan)
+                      </label>
+                      <select
+                        name="sub_district"
+                        value={form.sub_district}
                         onChange={handleChange}
                         className="w-full bg-white/10 border border-white/20 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm [&>option]:text-black"
                         required
                       >
                         <option value="" disabled>Select community</option>
-                        {locations[country as keyof typeof locations].map(a => <option key={a} value={a}>{a}</option>)}
+                        {/* @ts-ignore */}
+                        {locations[country as keyof typeof locations][district]?.map(a => <option key={a} value={a}>{a}</option>)}
                       </select>
                     </div>
                   </div>
@@ -419,7 +466,7 @@ export function SignUpPage() {
                 type="submit"
                 className="w-full bg-gradient-to-r from-emerald-500 to-green-500 text-white font-semibold py-3.5 rounded-xl hover:from-emerald-600 hover:to-green-600 transition-all shadow-lg shadow-emerald-500/25 mt-2"
               >
-                {step === 1 ? "Continue →" : "Create Account & Start Earning"}
+                {step === 1 ? "Continue →" : "Become an Eco Champion"}
               </button>
 
               {step === 2 && (

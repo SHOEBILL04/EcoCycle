@@ -15,15 +15,19 @@ class AuthController extends Controller
             'name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users',
             'password' => 'required|string|min:8|confirmed',
-            'area' => 'required|string|max:255',
+            'country' => 'required|string|max:255',
+            'district' => 'required|string|max:255',
+            'sub_district' => 'required|string|max:255',
         ]);
 
-        $clan = \App\Models\Clan::firstOrCreate(['name' => $request->area]);
+        $clan = \App\Models\Clan::firstOrCreate(['name' => $request->sub_district]);
 
         $user = User::create([
             'name' => $request->name,
             'email' => $request->email,
             'password' => Hash::make($request->password),
+            'country' => $request->country,
+            'district' => $request->district,
             'clan_id' => $clan->id,
             'role' => 'citizen', 
             'is_private' => false,
