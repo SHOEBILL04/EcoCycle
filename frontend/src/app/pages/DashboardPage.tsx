@@ -511,12 +511,23 @@ export function DashboardPage() {
                 </div>
               ))}
             </div>
-            <Link
-              to="/app/leaderboard"
-              className="block mt-3 text-center text-xs text-emerald-600 hover:text-emerald-700 font-medium"
-            >
-              Full Leaderboard →
-            </Link>
+            <div className="grid grid-cols-2 gap-2 mt-3">
+              <Link
+                to="/app/leaderboard"
+                id="dashboard-global-leaderboard-link"
+                className="flex items-center justify-center gap-1.5 py-2 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-xl transition-colors"
+              >
+                🌍 Global
+              </Link>
+              <Link
+                to="/app/leaderboard"
+                id="dashboard-clan-leaderboard-link"
+                state={{ tab: "clan" }}
+                className="flex items-center justify-center gap-1.5 py-2 text-xs font-semibold text-violet-700 bg-violet-50 hover:bg-violet-100 border border-violet-200 rounded-xl transition-colors"
+              >
+                🛡️ Clans
+              </Link>
+            </div>
           </div>
         </div>
       </div>
