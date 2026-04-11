@@ -52,6 +52,7 @@ class RewardEngineService
         }
 
         DB::beginTransaction();
+        $auditPayload = null;
 
         try {
             $user = $submission->user;
@@ -82,8 +83,7 @@ class RewardEngineService
                 $clan->refresh();
             }
 
-            // Synchronous audit write — part of the same transaction
-            $this->safeCreateAudit([
+            $auditPayload = [
                 'event_type'  => 'SUBMISSION_REWARDED',
                 'user_id'     => $user->id,
                 'description' => "Awarded {$pointsAwarded} pts for submission #{$submission->id}",
@@ -93,9 +93,10 @@ class RewardEngineService
                     'new_user_total' => $user->total_points,
                     'new_clan_total' => $clan ? $clan->total_points : 0,
                 ],
-            ]);
+            ];
 
             DB::commit();
+            $this->safeCreateAudit($auditPayload);
 
             return true;
         } catch (Exception $e) {

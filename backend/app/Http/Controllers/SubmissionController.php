@@ -65,6 +65,8 @@ class SubmissionController extends Controller
 
         if ($recentDuplicate) {
             DB::beginTransaction();
+            $auditPayload = null;
+            $notificationPayload = null;
 
             try {
                 // Use atomic update to prevent race conditions (stale data overwriting recent rewards)
@@ -85,7 +87,7 @@ class SubmissionController extends Controller
                     'image_hash' => $imageHash,
                 ]);
 
-                $this->safeCreateAudit([
+                $auditPayload = [
                     'event_type' => 'FAILED_SUBMISSION_FLAGGED_PENALTY',
                     'user_id' => $user->id,
                     'description' => "User submitted a repetitive duplicate image hash. Deducted 30 points. User now has {$user->flags} flags.",
@@ -97,16 +99,18 @@ class SubmissionController extends Controller
                         'duplicate_window_days' => $duplicateWindowDays,
                         'window_start'         => $windowStart->toISOString(),
                     ],
-                ]);
+                ];
 
-                $this->safeCreateNotification([
+                $notificationPayload = [
                     'user_id' => $user->id,
                     'message' => "🚫 FLAGGED: Duplicate image detected within the {$duplicateWindowDays}-day window. A 30-point penalty has been applied.",
                     'type' => 'submission_flagged',
                     'submission_id' => $submission->id,
-                ]);
+                ];
 
                 DB::commit();
+                $this->safeCreateAudit($auditPayload);
+                $this->safeCreateNotification($notificationPayload);
 
                 return response()->json([
                     'status' => 'FLAGGED',
@@ -172,6 +176,7 @@ class SubmissionController extends Controller
         $secondaryDistribution = $classification['secondary_distribution'] ?? [];
 
         DB::beginTransaction();
+        $submissionCreatedAuditPayload = null;
 
         try {
             $submission = Submission::create([
@@ -191,14 +196,15 @@ class SubmissionController extends Controller
                 'image_hash' => $imageHash,
             ]);
 
-            $this->safeCreateAudit([
+            $submissionCreatedAuditPayload = [
                 'event_type' => 'SUBMISSION_CREATED',
                 'user_id' => $user->id,
                 'description' => "Submission classified as '{$primaryCategory}' (primary: {$primaryScore}, alternative: {$altScore}). Engine choice: {$engineChoice}. Threshold: {$threshold}.",
                 'payload' => $classification,
-            ]);
+            ];
 
             DB::commit();
+            $this->safeCreateAudit($submissionCreatedAuditPayload);
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('DB Error: ' . $e->getMessage());
@@ -244,6 +250,8 @@ class SubmissionController extends Controller
         }
 
         DB::beginTransaction();
+        $disputeAuditPayload = null;
+        $disputeNotificationPayload = null;
 
         try {
             if ($altScore >= $threshold) {
@@ -253,7 +261,7 @@ class SubmissionController extends Controller
 
                 $this->rewardEngine->processResolvedSubmission($submission, $points);
 
-                $this->safeCreateAudit([
+                $disputeAuditPayload = [
                     'event_type' => 'DISPUTE_AUTO_RESOLVED',
                     'user_id' => $user->id,
                     'description' => "Dispute resolved automatically using alternative engine. Category changed to '{$altCategory}'.",
@@ -262,16 +270,18 @@ class SubmissionController extends Controller
                         'new_category' => $altCategory,
                         'score' => $altScore,
                     ],
-                ]);
+                ];
 
-                $this->safeCreateNotification([
+                $disputeNotificationPayload = [
                     'user_id' => $submission->user_id,
                     'message' => "Resolved! Initial confidence low, but alternative engine confirmed your submission. You earned {$points} points.",
                     'type' => 'reward_earned',
                     'submission_id' => $submission->id,
-                ]);
+                ];
 
                 DB::commit();
+                $this->safeCreateAudit($disputeAuditPayload);
+                $this->safeCreateNotification($disputeNotificationPayload);
 
                 return response()->json([
                     'status' => 'REWARDED_VIA_DISPUTE',
@@ -293,7 +303,7 @@ class SubmissionController extends Controller
             $submission->status = 'PENDING';
             $submission->save();
 
-            $this->safeCreateAudit([
+            $disputeAuditPayload = [
                 'event_type' => 'SUBMISSION_PENDING',
                 'user_id' => $user->id,
                 'description' => "Submission #{$submission->id} entered dispute queue. (primary {$primaryScore}, alternative {$altScore} < threshold {$threshold}).",
@@ -302,16 +312,18 @@ class SubmissionController extends Controller
                     'primary' => $primaryScore,
                     'alternative' => $altScore,
                 ],
-            ]);
+            ];
 
-            $this->safeCreateNotification([
+            $disputeNotificationPayload = [
                 'user_id' => $submission->user_id,
                 'message' => "Your submission is under review by a moderator.",
                 'type' => 'submission_pending',
                 'submission_id' => $submission->id,
-            ]);
+            ];
 
             DB::commit();
+            $this->safeCreateAudit($disputeAuditPayload);
+            $this->safeCreateNotification($disputeNotificationPayload);
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('DB Error: ' . $e->getMessage());
