@@ -5,7 +5,9 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\Submission;
 use App\Models\Transaction;
+use App\Models\User;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class ProfileController extends Controller
 {
@@ -94,12 +96,34 @@ class ProfileController extends Controller
              $badges[] = ["emoji" => "⚡", "label" => "Speed Runner", "desc" => "10+ submissions lifetime"];
         }
 
+        // ── Community rank ────────────────────────────────────────────────────
+        // Count how many public, non-banned users have strictly more total_points.
+        // Rank = that count + 1 (so the top scorer is rank 1).
+        // Private users still receive their own rank privately; it is simply not
+        // surfaced to other users (enforced at the leaderboard/feed layer).
+        $rank = DB::table('users')
+            ->where('is_private', false)
+            ->where('is_banned', false)
+            ->where('total_points', '>', $user->total_points)
+            ->count() + 1;
+
+        // ── Public profile summary (all required spec fields) ─────────────────
+        $profile = [
+            'username'           => $user->name,
+            'total_points'       => $user->total_points,
+            'classification_count' => $allTotal,
+            'accuracy_rate'      => $baseAccuracy,   // percentage, 0-100
+            'community_rank'     => $rank,
+            'is_private'         => (bool) $user->is_private,
+        ];
+
         return response()->json([
-            'radarData' => $radarData,
-            'activityData' => $activityData,
-            'badges' => $badges,
+            'profile'           => $profile,
+            'radarData'         => $radarData,
+            'activityData'      => $activityData,
+            'badges'            => $badges,
             'categoryBreakdown' => $categoryBreakdown,
-            'keyMetrics' => $keyMetrics,
+            'keyMetrics'        => $keyMetrics,
         ]);
     }
 }

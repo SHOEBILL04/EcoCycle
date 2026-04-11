@@ -11,7 +11,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Throwable;
+use Illuminate\Support\Facades\Storage;
 
 class SubmissionController extends Controller
 {
@@ -40,12 +40,12 @@ class SubmissionController extends Controller
         $imageUrl = "";
 
         try {
-            if (!\Illuminate\Support\Facades\Storage::disk('public')->exists('submissions')) {
-                \Illuminate\Support\Facades\Storage::disk('public')->makeDirectory('submissions');
+            if (!Storage::disk('public')->exists('submissions')) {
+                Storage::disk('public')->makeDirectory('submissions');
             }
 
-            \Illuminate\Support\Facades\Storage::disk('public')->put($imagePath, base64_decode($b64));
-            $imageUrl = \Illuminate\Support\Facades\Storage::disk('public')->url($imagePath);
+            Storage::disk('public')->put($imagePath, base64_decode($b64));
+            $imageUrl = asset('storage/' . $imagePath);
         } catch (\Exception $e) {
             Log::error('Storage Failure: ' . $e->getMessage());
             // We'll proceed without an image URL to avoid crashing, 
@@ -53,8 +53,14 @@ class SubmissionController extends Controller
             $imageUrl = "https://placehold.co/600x400?text=Upload+Stored+Successfully";
         }
 
+        // Read the duplicate-detection lookback window (days) from config cache.
+        // Default: 30 days. Adjustable by admin via PUT /admin/config/duplicate-window.
+        $duplicateWindowDays = (int) Cache::get('DUPLICATE_WINDOW_DAYS', 30);
+        $windowStart = now()->subDays($duplicateWindowDays);
+
         $recentDuplicate = Submission::where('user_id', $user->id)
             ->where('image_hash', $imageHash)
+            ->where('created_at', '>=', $windowStart)
             ->first();
 
         if ($recentDuplicate) {
@@ -84,16 +90,18 @@ class SubmissionController extends Controller
                     'user_id' => $user->id,
                     'description' => "User submitted a repetitive duplicate image hash. Deducted 30 points. User now has {$user->flags} flags.",
                     'payload' => [
-                        'submission_id' => $submission->id,
-                        'hash' => $imageHash,
-                        'penalty' => 30,
-                        'flags' => $user->flags,
+                        'submission_id'        => $submission->id,
+                        'hash'                 => $imageHash,
+                        'penalty'              => 30,
+                        'flags'                => $user->flags,
+                        'duplicate_window_days' => $duplicateWindowDays,
+                        'window_start'         => $windowStart->toISOString(),
                     ],
                 ]);
 
                 $this->safeCreateNotification([
                     'user_id' => $user->id,
-                    'message' => "FLAGGED: Repetitive image detected. A 30 point penalty has been applied.",
+                    'message' => "🚫 FLAGGED: Duplicate image detected within the {$duplicateWindowDays}-day window. A 30-point penalty has been applied.",
                     'type' => 'submission_flagged',
                     'submission_id' => $submission->id,
                 ]);

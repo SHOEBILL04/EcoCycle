@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Services\RewardEngineService;
 use App\Services\WasteClassificationService;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Carbon;
 
 class ModeratorController extends Controller
 {
@@ -51,7 +52,7 @@ class ModeratorController extends Controller
         return response()->json($disputes);
     }
 
-    public function verdict(Request $request, $id)
+    public function verdict(Request $request, Submission $submission)
     {
         $request->validate([
             'category' => 'required|in:recyclable,organic,e-waste,hazardous',
@@ -63,21 +64,23 @@ class ModeratorController extends Controller
 
         DB::beginTransaction();
         try {
-            $submission = Submission::with('user')
-                ->where('id', $id)
-                ->lockForUpdate()
-                ->firstOrFail();
-
-            if (!in_array($submission->status, ['PENDING', 'FLAGGED'])) {
+            // Only PENDING submissions may receive a moderator reward verdict.
+            // FLAGGED submissions are fraud-detected items — they must be REJECTED
+            // via resolve(), never rewarded. This guard enforces that constraint at
+            // the controller layer before the RewardEngine is even called.
+            if ($submission->status !== 'PENDING') {
                 DB::rollBack();
-                return response()->json(['error' => 'Submission is not in a modifiable state.'], 409);
+                $hint = $submission->status === 'FLAGGED'
+                    ? 'Flagged (fraud-detected) submissions cannot be rewarded. Use the Reject action instead.'
+                    : 'Only PENDING submissions can receive a moderator verdict.';
+                return response()->json(['error' => $hint], 409);
             }
 
             // Update submission classification data
             $submission->final_category = $category;
             $submission->final_confidence = 0.95; // Moderator manual override is high confidence
             $submission->resolved_by = $moderator->id;
-            $submission->resolved_at = now();
+            $submission->resolved_at = Carbon::now();
             // Note: RewardEngineService will handle status transition to REWARDED and points_awarded
             
             // Delegate to canonical reward logic
@@ -146,8 +149,15 @@ class ModeratorController extends Controller
             SystemAudit::create([
                 'event_type'  => 'SUBMISSION_REJECTED',
                 'user_id'     => $request->user()->id,
-                'description' => "Moderator manually rejected submission #{$id}. Silent -10 point penalty applied.",
+                'description' => "Moderator manually rejected submission #{$id}. A 10 point penalty has been applied.",
                 'payload'     => ['submission_id' => $id, 'moderator_id' => $request->user()->id, 'penalty' => 10],
+            ]);
+
+            Notification::create([
+                'user_id' => $submission->user_id,
+                'message' => "❌ REJECTED: Your submission was rejected by a moderator. A 10 point penalty has been applied.",
+                'type' => 'submission_rejected',
+                'submission_id' => $submission->id,
             ]);
 
             DB::commit();

@@ -299,7 +299,20 @@ export function AppLayout() {
                         onClick={() => markNotificationRead(n.id).catch(console.error)}
                         className={`w-full text-left flex gap-3 p-3 hover:bg-gray-50 cursor-pointer ${n.is_read ? 'bg-white' : 'bg-emerald-50/40'}`}
                       >
-                        <span className="text-xl">{n.type === 'dispute_raised' ? '⚠️' : '✅'}</span>
+                        <span className="text-xl">
+                          {(() => {
+                            switch (n.type) {
+                              case 'reward_earned': return '✅';
+                              case 'points_redeemed': return '🛍️';
+                              case 'submission_flagged': return '🚫';
+                              case 'submission_rejected': return '❌';
+                              case 'submission_pending': return '⏳';
+                              case 'dispute_resolved': return '✨';
+                              case 'dispute_raised': return '⚠️';
+                              default: return '🔔';
+                            }
+                          })()}
+                        </span>
                         <div className="flex-1">
                           <p className="text-sm text-gray-700">{n.message}</p>
                           <p className="text-xs text-gray-400 mt-0.5">
