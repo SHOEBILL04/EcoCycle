@@ -85,7 +85,7 @@ class SubmissionController extends Controller
                     'image_hash' => $imageHash,
                 ]);
 
-                SystemAudit::create([
+                $this->safeCreateAudit([
                     'event_type' => 'FAILED_SUBMISSION_FLAGGED_PENALTY',
                     'user_id' => $user->id,
                     'description' => "User submitted a repetitive duplicate image hash. Deducted 30 points. User now has {$user->flags} flags.",
@@ -99,7 +99,7 @@ class SubmissionController extends Controller
                     ],
                 ]);
 
-                Notification::create([
+                $this->safeCreateNotification([
                     'user_id' => $user->id,
                     'message' => "🚫 FLAGGED: Duplicate image detected within the {$duplicateWindowDays}-day window. A 30-point penalty has been applied.",
                     'type' => 'submission_flagged',
@@ -124,7 +124,7 @@ class SubmissionController extends Controller
 
         $requestedEngine = $request->input('engine', 'echo_engine');
         $engineChoice = in_array($requestedEngine, ['echo_engine'], true) ? 'echo_engine' : 'gemini_engine';
-        $threshold = (float) Cache::get('CONFIDENCE_THRESHOLD', 0.85);
+        $threshold = $this->resolveConfidenceThreshold();
         $echoFallbackTriggered = false;
 
         if ($engineChoice === 'echo_engine') {
@@ -191,7 +191,7 @@ class SubmissionController extends Controller
                 'image_hash' => $imageHash,
             ]);
 
-            SystemAudit::create([
+            $this->safeCreateAudit([
                 'event_type' => 'SUBMISSION_CREATED',
                 'user_id' => $user->id,
                 'description' => "Submission classified as '{$primaryCategory}' (primary: {$primaryScore}, alternative: {$altScore}). Engine choice: {$engineChoice}. Threshold: {$threshold}.",
@@ -216,7 +216,7 @@ class SubmissionController extends Controller
                     ? "Echo_engine confidence was low, so Gemini high accuracy fallback checked the image and you earned {$points} points."
                     : "High confidence! You earned {$points} points.";
 
-                Notification::create([
+                $this->safeCreateNotification([
                     'user_id' => $submission->user_id,
                     'message' => "Success! Your submission was rewarded with {$points} points.",
                     'type' => 'reward_earned',
@@ -253,7 +253,7 @@ class SubmissionController extends Controller
 
                 $this->rewardEngine->processResolvedSubmission($submission, $points);
 
-                SystemAudit::create([
+                $this->safeCreateAudit([
                     'event_type' => 'DISPUTE_AUTO_RESOLVED',
                     'user_id' => $user->id,
                     'description' => "Dispute resolved automatically using alternative engine. Category changed to '{$altCategory}'.",
@@ -264,7 +264,7 @@ class SubmissionController extends Controller
                     ],
                 ]);
 
-                Notification::create([
+                $this->safeCreateNotification([
                     'user_id' => $submission->user_id,
                     'message' => "Resolved! Initial confidence low, but alternative engine confirmed your submission. You earned {$points} points.",
                     'type' => 'reward_earned',
@@ -293,7 +293,7 @@ class SubmissionController extends Controller
             $submission->status = 'PENDING';
             $submission->save();
 
-            SystemAudit::create([
+            $this->safeCreateAudit([
                 'event_type' => 'SUBMISSION_PENDING',
                 'user_id' => $user->id,
                 'description' => "Submission #{$submission->id} entered dispute queue. (primary {$primaryScore}, alternative {$altScore} < threshold {$threshold}).",
@@ -304,7 +304,7 @@ class SubmissionController extends Controller
                 ],
             ]);
 
-            Notification::create([
+            $this->safeCreateNotification([
                 'user_id' => $submission->user_id,
                 'message' => "Your submission is under review by a moderator.",
                 'type' => 'submission_pending',
@@ -392,5 +392,42 @@ class SubmissionController extends Controller
         arsort($distribution);
 
         return $distribution;
+    }
+
+    private function resolveConfidenceThreshold(): float
+    {
+        try {
+            return (float) Cache::get('CONFIDENCE_THRESHOLD', 0.85);
+        } catch (Throwable $e) {
+            Log::warning('Falling back to default confidence threshold.', [
+                'error' => $e->getMessage(),
+            ]);
+
+            return 0.85;
+        }
+    }
+
+    private function safeCreateAudit(array $attributes): void
+    {
+        try {
+            SystemAudit::create($attributes);
+        } catch (Throwable $e) {
+            Log::warning('Skipping audit write during submission flow.', [
+                'event_type' => $attributes['event_type'] ?? null,
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    private function safeCreateNotification(array $attributes): void
+    {
+        try {
+            Notification::create($attributes);
+        } catch (Throwable $e) {
+            Log::warning('Skipping notification write during submission flow.', [
+                'type' => $attributes['type'] ?? null,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 }
