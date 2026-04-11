@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\User;
 use App\Models\Follow;
+use App\Models\Notification;
 use App\Models\Submission;
 use App\Models\Transaction;
 use App\Models\SystemAudit;
@@ -27,6 +28,12 @@ class SocialController extends Controller
 
         if (!$exists) {
             Follow::create(['follower_id' => $user->id, 'followed_id' => $id]);
+
+            Notification::create([
+                'user_id' => $target->id,
+                'message' => "{$user->name} started following you.",
+                'type' => 'new_follower',
+            ]);
 
             // Synchronous audit write
             SystemAudit::create([
@@ -79,20 +86,24 @@ class SocialController extends Controller
             // Privacy gate: never surface private-profile users regardless of follow status
             ->whereHas('user', fn ($q) => $q->where('is_private', false));
 
-        if (empty($followingIds)) {
-            // User follows nobody — return an empty feed (correct per spec)
-            $submissions = collect();
-        } else {
-            // Filter to followed accounts only
-            $submissions = $submissionsQuery
-                ->whereIn('user_id', $followingIds)
+        $submissions = empty($followingIds)
+            ? $submissionsQuery
+                ->orderBy('created_at', 'desc')
+                ->take(50)
+                ->get()
+            : $submissionsQuery
+                ->where(function ($query) use ($followingIds) {
+                    $query->whereIn('user_id', $followingIds)
+                        ->orWhere('status', 'REWARDED');
+                })
+                ->orderByRaw('CASE WHEN user_id IN (' . implode(',', array_map('intval', $followingIds)) . ') THEN 0 ELSE 1 END')
                 ->orderBy('created_at', 'desc')
                 ->take(50)
                 ->get();
-        }
 
         $feed = $submissions->map(fn (Submission $s) => [
             'id'                   => $s->id,
+            'user_id'              => $s->user_id,
             'user'                 => $s->user->name ?? 'Unknown',
             'avatar'               => strtoupper(substr($s->user->name ?? 'U', 0, 2)),
             'category'             => $s->category,
@@ -105,11 +116,30 @@ class SocialController extends Controller
         ]);
 
         $following = User::whereIn('id', $followingIds)->select('id', 'name')->get()->map(fn ($u) => [
+            'id' => $u->id,
             'name' => $u->name,
             'avatar' => strtoupper(substr($u->name, 0, 2)),
             'color' => 'from-emerald-400 to-emerald-600',
             'active' => true,
         ]);
+
+        $suggestions = User::query()
+            ->where('id', '!=', $user->id)
+            ->where('is_banned', false)
+            ->where('is_private', false)
+            ->when(!empty($followingIds), fn ($query) => $query->whereNotIn('id', $followingIds))
+            ->withCount('submissions')
+            ->orderByDesc('total_points')
+            ->orderByDesc('submissions_count')
+            ->take(8)
+            ->get(['id', 'name', 'total_points'])
+            ->map(fn ($suggested) => [
+                'id' => $suggested->id,
+                'name' => $suggested->name,
+                'avatar' => strtoupper(substr($suggested->name, 0, 2)),
+                'total_points' => (int) $suggested->total_points,
+                'submissions_count' => (int) $suggested->submissions_count,
+            ]);
 
         $startOfDay = now()->startOfDay();
         
@@ -142,6 +172,7 @@ class SocialController extends Controller
         return response()->json([
             'feed' => $feed,
             'following' => $following,
+            'suggestions' => $suggestions,
             'stats' => $stats,
             'trending' => $trending,
         ]);

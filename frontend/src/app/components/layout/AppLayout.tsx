@@ -19,6 +19,7 @@ import {
   ChevronDown,
   Recycle,
 } from "lucide-react";
+import { parseJsonResponse } from "../../lib/api";
 
 const baseNavItems = [
   { label: "Dashboard", icon: LayoutDashboard, path: "/app" },
@@ -46,6 +47,22 @@ export function AppLayout() {
   const [profileOpen, setProfileOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
+
+    const fetchNotifications = () => {
+        fetch(`${import.meta.env.VITE_API_URL}/notifications`, {
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+                'Accept': 'application/json'
+            }
+        })
+        .then(parseJsonResponse)
+        .then(data => {
+            const list = data.notifications || [];
+            setNotifications(list);
+            setUnreadCount(typeof data.unreadCount === 'number' ? data.unreadCount : list.filter((n: any) => !n.is_read).length);
+        })
+        .catch(console.error);
+    };
 
     const fetchUser = () => {
         fetch(`${import.meta.env.VITE_API_URL}/user`, {
@@ -75,26 +92,18 @@ export function AppLayout() {
 
     useEffect(() => {
         fetchUser();
+        fetchNotifications();
 
         const handleUserUpdate = () => fetchUser();
+        const handleWindowFocus = () => fetchNotifications();
         window.addEventListener('user-updated', handleUserUpdate);
-
-        fetch(`${import.meta.env.VITE_API_URL}/notifications`, {
-            headers: {
-                'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
-                'Accept': 'application/json'
-            }
-        })
-        .then(res => res.json())
-        .then(data => {
-            const list = data.notifications || [];
-            setNotifications(list);
-            setUnreadCount(typeof data.unreadCount === 'number' ? data.unreadCount : list.filter((n: any) => !n.is_read).length);
-        })
-        .catch(console.error);
+        window.addEventListener('focus', handleWindowFocus);
+        const intervalId = window.setInterval(fetchNotifications, 30000);
 
         return () => {
             window.removeEventListener('user-updated', handleUserUpdate);
+            window.removeEventListener('focus', handleWindowFocus);
+            window.clearInterval(intervalId);
         };
     }, []);
 
@@ -106,7 +115,7 @@ export function AppLayout() {
           'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
           'Accept': 'application/json'
         }
-      });
+      }).then(parseJsonResponse);
 
       setNotifications(prev => prev.map(n => n.id === notificationId ? { ...n, is_read: true } : n));
       setUnreadCount(prev => Math.max(0, prev - 1));
@@ -309,6 +318,7 @@ export function AppLayout() {
                               case 'submission_pending': return '⏳';
                               case 'dispute_resolved': return '✨';
                               case 'dispute_raised': return '⚠️';
+                              case 'new_follower': return '👤';
                               default: return '🔔';
                             }
                           })()}

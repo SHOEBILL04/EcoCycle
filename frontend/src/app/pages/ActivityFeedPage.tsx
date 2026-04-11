@@ -46,13 +46,16 @@ export function ActivityFeedPage() {
   const [filter, setFilter] = useState<FeedFilter>("all");
   const [search, setSearch] = useState("");
   const [likedItems, setLikedItems] = useState<Record<number, boolean>>({});
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [followPending, setFollowPending] = useState<Record<number, boolean>>({});
 
   const [feedItems, setFeedItems] = useState<any[]>([]);
   const [following, setFollowing] = useState<any[]>([]);
+  const [suggestions, setSuggestions] = useState<any[]>([]);
   const [stats, setStats] = useState<any[]>([]);
   const [trending, setTrending] = useState<any[]>([]);
 
-  useEffect(() => {
+  const fetchFeed = () => {
     fetch(`${import.meta.env.VITE_API_URL}/feed`, {
       headers: {
         'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
@@ -63,14 +66,42 @@ export function ActivityFeedPage() {
     .then(data => {
       setFeedItems(data.feed || []);
       setFollowing(data.following || []);
+      setSuggestions(data.suggestions || []);
       setStats(data.stats || []);
       setTrending(data.trending || []);
     })
     .catch(console.error);
+  };
+
+  useEffect(() => {
+    fetchFeed();
   }, []);
 
   const toggleLike = (id: number) => {
     setLikedItems((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const handleFollow = async (userId: number) => {
+    if (followPending[userId]) return;
+
+    setFollowPending((prev) => ({ ...prev, [userId]: true }));
+
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/follow/${userId}`, {
+        method: "POST",
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+          'Accept': 'application/json',
+        }
+      });
+
+      await parseJsonResponse(response);
+      fetchFeed();
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setFollowPending((prev) => ({ ...prev, [userId]: false }));
+    }
   };
 
   const filters: { id: FeedFilter; label: string; emoji: string }[] = [
@@ -147,10 +178,40 @@ export function ActivityFeedPage() {
                 </div>
               ))}
             </div>
-            <button className="w-full mt-3 flex items-center justify-center gap-1.5 text-xs text-emerald-600 hover:text-emerald-700 font-medium py-2 rounded-lg hover:bg-emerald-50 transition-colors">
+            <button
+              onClick={() => setShowSuggestions((prev) => !prev)}
+              className="w-full mt-3 flex items-center justify-center gap-1.5 text-xs text-emerald-600 hover:text-emerald-700 font-medium py-2 rounded-lg hover:bg-emerald-50 transition-colors"
+            >
               <UserPlus className="w-3.5 h-3.5" />
-              Find more people
+              {showSuggestions ? "Hide suggestions" : "Find more people"}
             </button>
+            {showSuggestions && (
+              <div className="mt-3 space-y-2 border-t border-gray-100 pt-3">
+                {suggestions.length === 0 && (
+                  <p className="text-xs text-gray-400">No more public profiles to suggest right now.</p>
+                )}
+                {suggestions.map((person) => (
+                  <div key={person.id} className="flex items-center gap-2.5 rounded-xl border border-gray-100 p-2.5">
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-400 to-green-600 flex items-center justify-center text-white text-xs font-bold">
+                      {person.avatar}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-gray-800 font-medium truncate">{person.name}</p>
+                      <p className="text-xs text-gray-400 truncate">
+                        {person.total_points} pts • {person.submissions_count} submissions
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => handleFollow(person.id)}
+                      disabled={!!followPending[person.id]}
+                      className="px-2.5 py-1.5 rounded-lg bg-emerald-500 text-white text-xs font-semibold hover:bg-emerald-600 disabled:opacity-60"
+                    >
+                      {followPending[person.id] ? "Adding..." : "Follow"}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Feed stats */}
@@ -269,7 +330,17 @@ export function ActivityFeedPage() {
                         <span className="text-xs text-gray-400">{timeAgo(item.created_at)}</span>
                       </div>
                     </div>
-                    <button className="text-gray-400 hover:text-emerald-600 transition-colors">
+                    <button
+                      onClick={() => {
+                        const person = suggestions.find((suggestion) => suggestion.id === item.user_id);
+                        if (person) {
+                          handleFollow(person.id);
+                        } else {
+                          setShowSuggestions(true);
+                        }
+                      }}
+                      className="text-gray-400 hover:text-emerald-600 transition-colors"
+                    >
                       <UserPlus className="w-4 h-4" />
                     </button>
                   </div>

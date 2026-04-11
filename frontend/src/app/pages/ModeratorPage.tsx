@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { ImageWithFallback } from "../components/figma/ImageWithFallback";
 import { 
   FileSearch, 
   AlertOctagon, 
@@ -39,6 +40,25 @@ type DisputeItem = {
 
 const API = import.meta.env.VITE_API_URL;
 const categories: Array<keyof ScoreMap> = ["recyclable", "organic", "e-waste", "hazardous"];
+
+function normalizeSubmissionImageUrl(rawUrl: string) {
+  if (!rawUrl) {
+    return "";
+  }
+
+  try {
+    const apiUrl = new URL(API);
+    const parsedUrl = new URL(rawUrl, apiUrl.origin);
+
+    if (parsedUrl.pathname.startsWith("/storage/")) {
+      return new URL(parsedUrl.pathname, apiUrl.origin).toString();
+    }
+
+    return parsedUrl.toString();
+  } catch {
+    return rawUrl;
+  }
+}
 
 export function ModeratorPage() {
   const [queue, setQueue] = useState<DisputeItem[]>([]);
@@ -232,7 +252,11 @@ export function ModeratorPage() {
 
                 <div className="grid gap-6 lg:grid-cols-[380px_1fr]">
                   <div className="rounded-2xl border border-gray-200 bg-gray-50 overflow-hidden relative group">
-                    <img src={item.imageUrl} alt={`Submission ${item.id}`} className="h-72 w-full object-cover" />
+                    <ImageWithFallback
+                      src={normalizeSubmissionImageUrl(item.imageUrl)}
+                      alt={`Submission ${item.id}`}
+                      className="h-72 w-full object-cover"
+                    />
                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                         <span className="text-white text-xs font-medium bg-black/60 px-3 py-1.5 rounded-full backdrop-blur-sm border border-white/20">Click image to enlarge</span>
                     </div>
