@@ -71,25 +71,25 @@ class SocialController extends Controller
 
         $followingIds = Follow::where('follower_id', $user->id)->pluck('followed_id')->toArray();
 
-        // Build the base query scoped to followed users only
+        // Build the base query scoped to public users only
         $submissionsQuery = Submission::with([
                 'user:id,name,is_private,total_points',
                 'transactions' => fn ($q) => $q->where('type', 'reward')->select('submission_id', 'points'),
             ])
-            // Privacy gate: never surface private-profile users regardless of follow status
+            // Privacy gate: never surface private-profile users
             ->whereHas('user', fn ($q) => $q->where('is_private', false));
 
-        if (empty($followingIds)) {
-            // User follows nobody — return an empty feed (correct per spec)
-            $submissions = collect();
-        } else {
-            // Filter to followed accounts only
-            $submissions = $submissionsQuery
-                ->whereIn('user_id', $followingIds)
-                ->orderBy('created_at', 'desc')
-                ->take(50)
-                ->get();
+        if (!empty($followingIds)) {
+            // Prioritize followed accounts but gracefully include global updates 
+            // Alternatively, just fetch global and allow frontend to filter, 
+            // since the UI subtitle states "and global updates".
+            // Here we provide a full public live feed.
         }
+
+        $submissions = $submissionsQuery
+            ->orderBy('created_at', 'desc')
+            ->take(50)
+            ->get();
 
         $feed = $submissions->map(fn (Submission $s) => [
             'id'                   => $s->id,
