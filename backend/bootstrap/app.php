@@ -21,6 +21,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'role' => \App\Http\Middleware\EnsureRole::class,
             'not.banned' => \App\Http\Middleware\EnsureNotBanned::class,
             'force.json' => \App\Http\Middleware\ForceJsonResponse::class,
+            'idempotent' => \App\Http\Middleware\IdempotencyMiddleware::class,
         ]);
         $middleware->statefulApi();
         $middleware->appendToGroup('api', [

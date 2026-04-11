@@ -19,8 +19,8 @@ Route::middleware(['auth:sanctum', 'not.banned'])->group(function () {
     Route::delete('/user', [AuthController::class, 'deleteAccount']);
 
     // ── Citizen-accessible ───────────────────────────────────────────────────
-    Route::post('/submissions', [\App\Http\Controllers\SubmissionController::class, 'store']);
-    Route::post('/submit-waste', [\App\Http\Controllers\SubmissionController::class, 'submit']);
+    Route::post('/submissions', [\App\Http\Controllers\SubmissionController::class, 'store'])->middleware('idempotent');
+    Route::post('/submit-waste', [\App\Http\Controllers\SubmissionController::class, 'submit'])->middleware('idempotent');
     Route::get('/dashboard',    [\App\Http\Controllers\DashboardController::class, 'index']);
     Route::get('/leaderboard',  [\App\Http\Controllers\LeaderboardController::class, 'index']);
     Route::get('/notifications', [NotificationController::class, 'index']);
@@ -34,7 +34,7 @@ Route::middleware(['auth:sanctum', 'not.banned'])->group(function () {
 
     // Redemption
     Route::get('/rewards', [\App\Http\Controllers\RewardController::class, 'index']);
-    Route::post('/redeem', [\App\Http\Controllers\RewardController::class, 'redeem']);
+    Route::post('/redeem', [\App\Http\Controllers\RewardController::class, 'redeem'])->middleware('idempotent');
 
     // ── Moderator & Admin ────────────────────────────────────────────────────
     Route::middleware('role:moderator,admin')->group(function () {
