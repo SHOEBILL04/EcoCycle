@@ -98,6 +98,14 @@ const mockResults = {
   },
 };
 
+const createIdempotencyKey = () => {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+
+  return `submit-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+};
+
 export function SubmitWastePage() {
   const [selectedEngine, setSelectedEngine] = useState("echo_engine");
   const [dragOver, setDragOver] = useState(false);
@@ -172,7 +180,8 @@ export function SubmitWastePage() {
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+          'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+          'Idempotency-Key': createIdempotencyKey(),
         },
         body: JSON.stringify({ 
             image_b64: uploadedImage, 

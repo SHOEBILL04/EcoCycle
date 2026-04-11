@@ -228,8 +228,8 @@ class AdminController extends Controller
             'submission_breakdown' => $submissionStats,
             'user_role_breakdown'  => $userStats,
             'audit_event_counts'   => $auditEventStats,
-            'total_points_awarded' => clone DB::table('transactions')->where('type', 'reward')->sum('points'),
-            'total_redeemed'       => clone DB::table('transactions')->where('type', 'redemption')->sum(DB::raw('ABS(points)')),
+            'total_points_awarded' => DB::table('transactions')->where('type', 'reward')->sum('points'),
+            'total_redeemed'       => DB::table('transactions')->where('type', 'redemption')->sum(DB::raw('ABS(points)')),
             'weekly_chart'         => $weeklyChart,
             'current_threshold'    => (float) \Illuminate\Support\Facades\Cache::get('CONFIDENCE_THRESHOLD', 0.85),
         ]);
