@@ -42,7 +42,7 @@ class ModeratorController extends Controller
                     'id' => $submission->id,
                     'status' => $submission->status,
                     'flaggedReason' => $submission->flagged_reason,
-                    'imageUrl' => $submission->image_url,
+                    'imageUrl' => $this->normalizeImageUrl($submission->image_url),
                     'aiConfidenceScores' => $submission->ai_confidence_scores,
                     'createdAt' => $submission->created_at,
                     'submittedBy' => $submission->user?->name,
@@ -237,6 +237,13 @@ class ModeratorController extends Controller
         // Fetch audit rows where the payload references this submission_id
         $audits = SystemAudit::with('user:id,name,role')
             ->where(function ($q) use ($submissionId) {
+                $driver = DB::connection()->getDriverName();
+
+                if ($driver === 'pgsql') {
+                    $q->whereRaw("(payload::jsonb ->> 'submission_id') = ?", [(string) $submissionId]);
+                    return;
+                }
+
                 $q->whereRaw("JSON_EXTRACT(payload, '$.submission_id') = ?", [$submissionId])
                   ->orWhereRaw("JSON_EXTRACT(payload, '$.submission_id') = ?", [(string) $submissionId]);
             })
@@ -274,5 +281,27 @@ class ModeratorController extends Controller
         $submission->save();
 
         return $points;
+    }
+
+    private function normalizeImageUrl(?string $imageUrl): ?string
+    {
+        if (!$imageUrl) {
+            return $imageUrl;
+        }
+
+        $appUrl = rtrim((string) config('app.url', ''), '/');
+        if ($appUrl !== '' && !str_contains($appUrl, 'localhost')) {
+            $appUrl = preg_replace('#^http://#i', 'https://', $appUrl) ?? $appUrl;
+        }
+
+        if (str_starts_with($imageUrl, '/storage/')) {
+            return $appUrl !== '' ? $appUrl . $imageUrl : $imageUrl;
+        }
+
+        if (preg_match('#^http://#i', $imageUrl) === 1 && !str_contains($imageUrl, 'localhost')) {
+            return preg_replace('#^http://#i', 'https://', $imageUrl) ?? $imageUrl;
+        }
+
+        return $imageUrl;
     }
 }

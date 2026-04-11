@@ -46,7 +46,7 @@ class SubmissionController extends Controller
             }
 
             Storage::disk('public')->put($imagePath, base64_decode($b64));
-            $imageUrl = asset('storage/' . $imagePath);
+            $imageUrl = $this->buildPublicStorageUrl($imagePath);
         } catch (\Exception $e) {
             Log::error('Storage Failure: ' . $e->getMessage());
             // We'll proceed without an image URL to avoid crashing, 
@@ -450,5 +450,20 @@ class SubmissionController extends Controller
                 'error' => $e->getMessage(),
             ]);
         }
+    }
+
+    private function buildPublicStorageUrl(string $path): string
+    {
+        $appUrl = rtrim((string) config('app.url', ''), '/');
+
+        if ($appUrl === '') {
+            return '/storage/' . ltrim($path, '/');
+        }
+
+        if (!str_contains($appUrl, 'localhost')) {
+            $appUrl = preg_replace('#^http://#i', 'https://', $appUrl) ?? $appUrl;
+        }
+
+        return $appUrl . '/storage/' . ltrim($path, '/');
     }
 }
