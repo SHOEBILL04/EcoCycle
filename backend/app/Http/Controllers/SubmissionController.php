@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Throwable;
 
 class SubmissionController extends Controller
 {
@@ -215,6 +216,11 @@ class SubmissionController extends Controller
         if ($primaryScore >= $threshold) {
             try {
                 $points = RewardEngineService::POINTS_BY_CATEGORY[$primaryCategory] ?? 10;
+                $submission->final_category = $primaryCategory;
+                $submission->final_confidence = $primaryScore;
+                $submission->resolved_at = now();
+                $submission->save();
+
                 $this->rewardEngine->processResolvedSubmission($submission, $points);
 
                 $responseStatus = $echoFallbackTriggered ? 'REWARDED_VIA_DISPUTE' : 'REWARDED';
@@ -257,6 +263,9 @@ class SubmissionController extends Controller
             if ($altScore >= $threshold) {
                 $points = RewardEngineService::POINTS_BY_CATEGORY[$altCategory] ?? 10;
                 $submission->category = $altCategory;
+                $submission->final_category = $altCategory;
+                $submission->final_confidence = $altScore;
+                $submission->resolved_at = now();
                 $submission->save();
 
                 $this->rewardEngine->processResolvedSubmission($submission, $points);
