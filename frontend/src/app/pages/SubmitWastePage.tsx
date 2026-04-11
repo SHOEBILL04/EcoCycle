@@ -475,14 +475,19 @@ export function SubmitWastePage() {
                   className="w-full h-64 object-cover"
                 />
                 <button
-                  onClick={handleReset}
-                  className="absolute top-3 right-3 w-8 h-8 bg-black/50 hover:bg-black/70 rounded-full flex items-center justify-center text-white transition-colors"
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    handleReset();
+                  }}
+                  className="absolute top-3 right-3 z-20 w-8 h-8 bg-black/50 hover:bg-black/70 rounded-full flex items-center justify-center text-white transition-colors"
                 >
                   <X className="w-4 h-4" />
                 </button>
                 {status === "idle" && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+                  <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/20">
                     <button
+                      type="button"
                       onClick={handleAnalyze}
                       className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white font-bold px-6 py-3 rounded-2xl shadow-xl transition-colors"
                     >

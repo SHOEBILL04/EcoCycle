@@ -22,7 +22,10 @@ class IdempotencyMiddleware
         $idempotencyKey = $request->header('Idempotency-Key') ?? $request->header('X-Idempotency-Key');
 
         if (! $idempotencyKey) {
-            return response()->json(['error' => 'Idempotency-Key header is required for this action.'], 400);
+            $userScope = $request->user()?->id ?? $request->ip() ?? 'guest';
+            $routeScope = $request->method() . ':' . $request->path();
+            $payloadHash = sha1((string) $request->getContent());
+            $idempotencyKey = sha1($userScope . '|' . $routeScope . '|' . $payloadHash);
         }
 
         $cacheKey = "idempotency_{$idempotencyKey}";
