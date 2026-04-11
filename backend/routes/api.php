@@ -58,6 +58,7 @@ Route::middleware(['auth:sanctum', 'not.banned'])->group(function () {
         Route::patch('/admin/users/{id}/ban',   [\App\Http\Controllers\AdminController::class, 'banUser']);
         Route::get('/admin/audit-trail',        [\App\Http\Controllers\AdminController::class, 'auditTrail']);
         Route::get('/admin/system-stats',       [\App\Http\Controllers\AdminController::class, 'systemStats']);
-        Route::put('/admin/config/threshold',   [\App\Http\Controllers\AdminController::class, 'updateThreshold']);
+        Route::put('/admin/config/threshold',        [\App\Http\Controllers\AdminController::class, 'updateThreshold']);
+        Route::put('/admin/config/duplicate-window', [\App\Http\Controllers\AdminController::class, 'updateDuplicateWindow']);
     });
 });

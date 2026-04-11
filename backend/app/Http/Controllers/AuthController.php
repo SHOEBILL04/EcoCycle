@@ -137,15 +137,25 @@ class AuthController extends Controller
         $request->validate([
             'privacy' => 'sometimes|array',
             'notifications' => 'sometimes|array',
+            'is_private' => 'sometimes|boolean',
         ]);
 
         $user = $request->user();
         
         // Merge or replace settings
         $settings = $user->settings ?? [];
+        
         if ($request->has('privacy')) {
             $settings['privacy'] = array_merge($settings['privacy'] ?? [], $request->privacy);
+            if (isset($request->privacy['is_private'])) {
+                $user->is_private = filter_var($request->privacy['is_private'], FILTER_VALIDATE_BOOLEAN);
+            }
         }
+        
+        if ($request->has('is_private')) {
+            $user->is_private = filter_var($request->is_private, FILTER_VALIDATE_BOOLEAN);
+        }
+
         if ($request->has('notifications')) {
             $settings['notifications'] = array_merge($settings['notifications'] ?? [], $request->notifications);
         }
@@ -155,7 +165,8 @@ class AuthController extends Controller
 
         return response()->json([
             'message' => 'Settings updated successfully',
-            'settings' => $user->settings
+            'settings' => $user->settings,
+            'is_private' => (bool)$user->is_private
         ]);
     }
 

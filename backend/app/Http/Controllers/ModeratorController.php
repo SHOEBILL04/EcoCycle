@@ -64,10 +64,16 @@ class ModeratorController extends Controller
 
         DB::beginTransaction();
         try {
-            // Ensure the submission is in a modifiable state
-            if (!in_array($submission->status, ['PENDING', 'FLAGGED'])) {
+            // Only PENDING submissions may receive a moderator reward verdict.
+            // FLAGGED submissions are fraud-detected items — they must be REJECTED
+            // via resolve(), never rewarded. This guard enforces that constraint at
+            // the controller layer before the RewardEngine is even called.
+            if ($submission->status !== 'PENDING') {
                 DB::rollBack();
-                return response()->json(['error' => 'Submission is not in a modifiable state.'], 409);
+                $hint = $submission->status === 'FLAGGED'
+                    ? 'Flagged (fraud-detected) submissions cannot be rewarded. Use the Reject action instead.'
+                    : 'Only PENDING submissions can receive a moderator verdict.';
+                return response()->json(['error' => $hint], 409);
             }
 
             // Update submission classification data

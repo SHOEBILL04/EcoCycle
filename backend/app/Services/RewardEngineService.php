@@ -39,7 +39,10 @@ class RewardEngineService
         }
 
         // ── State machine guard ──────────────────────────────────────────────
-        $allowedFromStates = ['SUBMITTED', 'PENDING', 'FLAGGED'];
+        // FLAGGED is intentionally excluded: fraud-detected submissions must never
+        // be rewarded regardless of moderator action. FLAGGED → REJECTED is the
+        // only valid terminal path for flagged items (via ModeratorController::resolve).
+        $allowedFromStates = ['SUBMITTED', 'PENDING'];
         if (!in_array($submission->status, $allowedFromStates, true)) {
             throw new Exception(
                 "Invalid state transition: cannot reward a submission in status '{$submission->status}'."

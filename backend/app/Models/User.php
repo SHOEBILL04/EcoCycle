@@ -86,16 +86,7 @@ class User extends Authenticatable
         ];
     }
 
-    public function setIsPrivateAttribute($value): void
-    {
-        $this->attributes['is_private'] = filter_var($value, FILTER_VALIDATE_BOOLEAN) ? 'true' : 'false';
-    }
-
-    public function setIsBannedAttribute($value): void
-    {
-        $this->attributes['is_banned'] = filter_var($value, FILTER_VALIDATE_BOOLEAN) ? 'true' : 'false';
-    }
-
+    // Mutators removed in favor of native boolean casting
     protected static function booted()
     {
         static::creating(function ($user) {

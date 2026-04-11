@@ -266,4 +266,41 @@ class AdminController extends Controller
 
         return response()->json(['status' => 'success', 'threshold' => $newThreshold]);
     }
+
+    /**
+     * Update the duplicate-image detection lookback window (in days).
+     *
+     * SubmissionController reads DUPLICATE_WINDOW_DAYS from cache (default: 30).
+     * Setting it to a smaller value (e.g. 7) allows genuine resubmissions further
+     * in the past; a larger value (e.g. 90) tightens the fraud window.
+     */
+    public function updateDuplicateWindow(Request $request)
+    {
+        $request->validate([
+            'days' => 'required|integer|min:1|max:365',
+        ]);
+
+        $admin = $request->user();
+        $oldDays = (int) \Illuminate\Support\Facades\Cache::get('DUPLICATE_WINDOW_DAYS', 30);
+        $newDays = (int) $request->days;
+
+        if ($oldDays !== $newDays) {
+            \Illuminate\Support\Facades\Cache::forever('DUPLICATE_WINDOW_DAYS', $newDays);
+
+            SystemAudit::create([
+                'event_type'  => 'CONFIG_CHANGED',
+                'user_id'     => $admin->id,
+                'description' => "Admin [{$admin->id}] updated DUPLICATE_WINDOW_DAYS from {$oldDays} to {$newDays}.",
+                'payload'     => [
+                    'changedBy'  => $admin->id,
+                    'config_key' => 'DUPLICATE_WINDOW_DAYS',
+                    'oldDays'    => $oldDays,
+                    'newDays'    => $newDays,
+                    'timestamp'  => now()->toISOString(),
+                ],
+            ]);
+        }
+
+        return response()->json(['status' => 'success', 'duplicate_window_days' => $newDays]);
+    }
 }

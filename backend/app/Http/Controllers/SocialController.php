@@ -60,7 +60,10 @@ class SocialController extends Controller
     }
 
     /**
-     * Activity feed: recent submissions globally.
+     * Activity feed: recent submissions from followed accounts only.
+     *
+     * Privacy enforcement: private-profile users are excluded even if followed.
+     * If the authenticated user follows nobody, the feed is intentionally empty.
      */
     public function feed(Request $request)
     {
@@ -68,14 +71,25 @@ class SocialController extends Controller
 
         $followingIds = Follow::where('follower_id', $user->id)->pluck('followed_id')->toArray();
 
-        $submissions = Submission::with([
+        // Build the base query scoped to followed users only
+        $submissionsQuery = Submission::with([
                 'user:id,name,is_private,total_points',
                 'transactions' => fn ($q) => $q->where('type', 'reward')->select('submission_id', 'points'),
             ])
-            ->whereHas('user', fn ($q) => $q->where('is_private', false))
-            ->orderBy('created_at', 'desc')
-            ->take(50)
-            ->get();
+            // Privacy gate: never surface private-profile users regardless of follow status
+            ->whereHas('user', fn ($q) => $q->where('is_private', false));
+
+        if (empty($followingIds)) {
+            // User follows nobody — return an empty feed (correct per spec)
+            $submissions = collect();
+        } else {
+            // Filter to followed accounts only
+            $submissions = $submissionsQuery
+                ->whereIn('user_id', $followingIds)
+                ->orderBy('created_at', 'desc')
+                ->take(50)
+                ->get();
+        }
 
         $feed = $submissions->map(fn (Submission $s) => [
             'id'                   => $s->id,
