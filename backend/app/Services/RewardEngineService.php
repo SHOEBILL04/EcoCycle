@@ -6,7 +6,9 @@ use App\Models\Submission;
 use App\Models\Transaction;
 use App\Models\SystemAudit;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Exception;
+use Throwable;
 
 class RewardEngineService
 {
@@ -50,6 +52,7 @@ class RewardEngineService
         }
 
         DB::beginTransaction();
+        $auditPayload = null;
 
         try {
             $user = $submission->user;
@@ -80,25 +83,37 @@ class RewardEngineService
                 $clan->refresh();
             }
 
-            // Synchronous audit write — part of the same transaction
-            SystemAudit::create([
+            $auditPayload = [
                 'event_type'  => 'SUBMISSION_REWARDED',
                 'user_id'     => $user->id,
                 'description' => "Awarded {$pointsAwarded} pts for submission #{$submission->id}",
                 'payload'     => [
                     'submission_id'  => $submission->id,
                     'points_awarded' => $pointsAwarded,
-                    'new_user_total' => $user->total_points + $pointsAwarded,
-                    'new_clan_total' => $clan ? ($clan->total_points + $pointsAwarded) : 0,
+                    'new_user_total' => $user->total_points,
+                    'new_clan_total' => $clan ? $clan->total_points : 0,
                 ],
-            ]);
+            ];
 
             DB::commit();
+            $this->safeCreateAudit($auditPayload);
 
             return true;
         } catch (Exception $e) {
             DB::rollBack();
             throw $e;
+        }
+    }
+
+    private function safeCreateAudit(array $attributes): void
+    {
+        try {
+            SystemAudit::create($attributes);
+        } catch (Throwable $e) {
+            Log::warning('Skipping reward audit write.', [
+                'event_type' => $attributes['event_type'] ?? null,
+                'error' => $e->getMessage(),
+            ]);
         }
     }
 }
