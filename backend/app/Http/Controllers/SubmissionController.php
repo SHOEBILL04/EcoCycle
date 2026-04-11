@@ -93,7 +93,7 @@ class SubmissionController extends Controller
 
                 Notification::create([
                     'user_id' => $user->id,
-                    'message' => "FLAGGED: Repetitive image detected. A 30 point penalty has been applied.",
+                    'message' => "🚫 FLAGGED: Repetitive image detected. A 10 point penalty has been applied.",
                     'type' => 'submission_flagged',
                     'submission_id' => $submission->id,
                 ]);

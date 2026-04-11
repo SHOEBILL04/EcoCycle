@@ -143,8 +143,15 @@ class ModeratorController extends Controller
             SystemAudit::create([
                 'event_type'  => 'SUBMISSION_REJECTED',
                 'user_id'     => $request->user()->id,
-                'description' => "Moderator manually rejected submission #{$id}. Silent -10 point penalty applied.",
+                'description' => "Moderator manually rejected submission #{$id}. A 10 point penalty has been applied.",
                 'payload'     => ['submission_id' => $id, 'moderator_id' => $request->user()->id, 'penalty' => 10],
+            ]);
+
+            Notification::create([
+                'user_id' => $submission->user_id,
+                'message' => "❌ REJECTED: Your submission was rejected by a moderator. A 10 point penalty has been applied.",
+                'type' => 'submission_rejected',
+                'submission_id' => $submission->id,
             ]);
 
             DB::commit();
