@@ -41,7 +41,7 @@ Route::middleware(['auth:sanctum', 'not.banned'])->group(function () {
         // Dispute queue
         Route::get('/moderator/disputes', [\App\Http\Controllers\ModeratorController::class, 'disputes']);
         Route::post('/moderator/resolve/{id}', [\App\Http\Controllers\ModeratorController::class, 'resolve']);
-        Route::post('/moderator/disputes/{id}/verdict', [\App\Http\Controllers\ModeratorController::class, 'verdict']);
+        Route::post('/moderator/disputes/{submission}/verdict', [\App\Http\Controllers\ModeratorController::class, 'verdict']);
 
         // Secondary engine review — triggers the alternative classifier audit record
         Route::post('/moderator/secondary-review/{id}', [\App\Http\Controllers\ModeratorController::class, 'secondaryReview']);

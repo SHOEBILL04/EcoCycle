@@ -11,6 +11,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 
 class SubmissionController extends Controller
 {
@@ -39,12 +40,12 @@ class SubmissionController extends Controller
         $imageUrl = "";
 
         try {
-            if (!\Illuminate\Support\Facades\Storage::disk('public')->exists('submissions')) {
-                \Illuminate\Support\Facades\Storage::disk('public')->makeDirectory('submissions');
+            if (!Storage::disk('public')->exists('submissions')) {
+                Storage::disk('public')->makeDirectory('submissions');
             }
 
-            \Illuminate\Support\Facades\Storage::disk('public')->put($imagePath, base64_decode($b64));
-            $imageUrl = \Illuminate\Support\Facades\Storage::disk('public')->url($imagePath);
+            Storage::disk('public')->put($imagePath, base64_decode($b64));
+            $imageUrl = asset('storage/' . $imagePath);
         } catch (\Exception $e) {
             Log::error('Storage Failure: ' . $e->getMessage());
             // We'll proceed without an image URL to avoid crashing, 

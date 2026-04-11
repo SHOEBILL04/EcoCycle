@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Services\RewardEngineService;
 use App\Services\WasteClassificationService;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Carbon;
 
 class ModeratorController extends Controller
 {
@@ -51,7 +52,7 @@ class ModeratorController extends Controller
         return response()->json($disputes);
     }
 
-    public function verdict(Request $request, $id)
+    public function verdict(Request $request, Submission $submission)
     {
         $request->validate([
             'category' => 'required|in:recyclable,organic,e-waste,hazardous',
@@ -63,11 +64,7 @@ class ModeratorController extends Controller
 
         DB::beginTransaction();
         try {
-            $submission = Submission::with('user')
-                ->where('id', $id)
-                ->lockForUpdate()
-                ->firstOrFail();
-
+            // Ensure the submission is in a modifiable state
             if (!in_array($submission->status, ['PENDING', 'FLAGGED'])) {
                 DB::rollBack();
                 return response()->json(['error' => 'Submission is not in a modifiable state.'], 409);
@@ -77,7 +74,7 @@ class ModeratorController extends Controller
             $submission->final_category = $category;
             $submission->final_confidence = 0.95; // Moderator manual override is high confidence
             $submission->resolved_by = $moderator->id;
-            $submission->resolved_at = now();
+            $submission->resolved_at = Carbon::now();
             // Note: RewardEngineService will handle status transition to REWARDED and points_awarded
             
             // Delegate to canonical reward logic
